@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>{% block title %}SMP PC Kitchen{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar {% block nav_class %}{% endblock %}">
+        <div class="nav-brand" id="navBrand">SMP PC Kitchen</div>
+        {% block nav_links %}
+        <div class="nav-links">
+            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">체크리스트</a>
+            <a href="/inventory" class="nav-link {% if request.path == '/inventory' %}active{% endif %}">재고관리</a>
+        </div>
+        {% endblock %}
+    </nav>
+
+    <main class="container {% block container_class %}{% endblock %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Scroll FAB -->
+    <button class="scroll-fab" id="scrollFab" onclick="toggleScroll()">&#9660;</button>
+
+    <script>
+        function showToast(msg, type = 'success') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast ' + type;
+            setTimeout(() => t.className = 'toast hidden', 2000);
+        }
+
+        function api(url, options = {}) {
+            if (options.body && typeof options.body === 'object') {
+                options.body = JSON.stringify(options.body);
+                options.headers = { 'Content-Type': 'application/json', ...options.headers };
+            }
+            return fetch(url, options).then(r => r.json());
+        }
+
+        function getSelectedStaff() {
+            const el = document.querySelector('.staff-btn.selected');
+            return el ? el.dataset.name : '';
+        }
+
+        // Secret: 5 rapid clicks on logo -> toggle admin/main
+        (function() {
+            let clicks = 0, timer = null;
+            const isAdmin = window.location.pathname === '/manage';
+            document.getElementById('navBrand').addEventListener('click', () => {
+                clicks++;
+                clearTimeout(timer);
+                timer = setTimeout(() => { clicks = 0; }, 1500);
+                if (clicks >= 5) { clicks = 0; window.location.href = isAdmin ? '/' : '/manage'; }
+            });
+        })();
+
+        // Scroll FAB logic
+        const fab = document.getElementById('scrollFab');
+        let atBottom = false;
+
+        function updateFab() {
+            const scrollTop = window.scrollY;
+            const scrollMax = document.documentElement.scrollHeight - window.innerHeight;
+            atBottom = scrollTop > scrollMax - 50;
+            fab.innerHTML = atBottom ? '&#9650;' : '&#9660;';
+            fab.style.opacity = scrollMax > 100 ? '1' : '0';
+            fab.style.pointerEvents = scrollMax > 100 ? 'auto' : 'none';
+        }
+
+        function toggleScroll() {
+            if (atBottom) window.scrollTo({ top: 0, behavior: 'smooth' });
+            else window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+        }
+
+        window.addEventListener('scroll', updateFab, { passive: true });
+        updateFab();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

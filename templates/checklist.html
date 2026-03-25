@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}체크리스트 - SMP PC Kitchen{% endblock %}
+{% block container_class %}wide{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>SMP PC Kitchen <span id="shiftLabel">DayTime</span> Checklist</h1>
+    <div class="header-controls">
+        <input type="date" id="dateInput" value="">
+    </div>
+</div>
+
+<div class="staff-bar">
+    <label>담당자</label>
+    <div class="staff-buttons" id="staffButtons"></div>
+</div>
+
+<div class="shift-tabs">
+    <button class="shift-tab active" data-shift="day" onclick="switchShift('day')">주간 (Day)</button>
+    <button class="shift-tab" data-shift="night" onclick="switchShift('night')">야간 (Night)</button>
+</div>
+
+<!-- Past days summary (mini version of admin) -->
+<div class="summary-strip" id="summaryStrip"></div>
+
+<div class="checklist-grid" id="checklistContainer"></div>
+
+<div class="notes-section">
+    <div class="note-card">
+        <div class="note-header">구매 재고 리스트</div>
+        <textarea class="note-textarea" id="purchaseNote" placeholder="구매해야 할 재고를 작성하세요..." rows="12"></textarea>
+    </div>
+    <div class="note-card">
+        <div class="note-header">인수인계 및 전달 사항</div>
+        <textarea class="note-textarea" id="handoffNote" placeholder="인수인계 내용을 작성하세요..." rows="12"></textarea>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentShift = 'day';
+let items = [];
+let noteTimers = {};
+
+const dateInput = document.getElementById('dateInput');
+dateInput.value = new Date().toISOString().split('T')[0];
+
+async function loadStaff() {
+    const staff = await api('/api/staff');
+    const container = document.getElementById('staffButtons');
+    const saved = localStorage.getItem('smp_staff');
+    container.innerHTML = staff.map(s =>
+        `<button class="staff-btn ${s.name === saved ? 'selected' : ''}" data-name="${s.name}" onclick="selectStaff(this)">${s.name}</button>`
+    ).join('');
+}
+
+function selectStaff(btn) {
+    document.querySelectorAll('.staff-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    localStorage.setItem('smp_staff', btn.dataset.name);
+}
+
+function switchShift(shift) {
+    currentShift = shift;
+    document.querySelectorAll('.shift-tab').forEach(t => t.classList.toggle('active', t.dataset.shift === shift));
+    document.getElementById('shiftLabel').textContent = shift === 'day' ? 'DayTime' : 'Night Time';
+    loadChecklist();
+    loadNotes();
+    loadSummaryStrip();
+}
+
+async function loadChecklist() {
+    items = await api(`/api/checklist/${currentShift}?date=${dateInput.value}`);
+    render();
+}
+
+function render() {
+    document.getElementById('checklistContainer').innerHTML = items.map((item, i) => `
+        <div class="cl-item ${item.completed ? 'checked' : ''}" onclick="toggleItem(${i})">
+            <div class="cl-check"></div>
+            <div class="cl-name">${item.name}</div>
+            ${item.completed ? `<div class="cl-meta">${item.completed_by || ''}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+async function toggleItem(index) {
+    const item = items[index];
+    const staff = getSelectedStaff();
+    if (!staff && !item.completed) { showToast('담당자를 선택하세요', 'error'); return; }
+    const newState = !item.completed;
+    await api('/api/checklist/check', {
+        method: 'POST',
+        body: { item_id: item.id, completed: newState, staff_name: staff, date: dateInput.value }
+    });
+    item.completed = newState;
+    item.completed_by = newState ? staff : null;
+    render();
+    loadSummaryStrip();
+}
+
+// Summary strip
+async function loadSummaryStrip() {
+    const end = new Date().toISOString().split('T')[0];
+    const start = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
+    const data = await api(`/api/checklist/summary?start=${start}&end=${end}`);
+    const byDate = {};
+    data.forEach(r => { if (!byDate[r.date]) byDate[r.date] = {}; byDate[r.date][r.shift] = r; });
+    const dayNames = ['일','월','화','수','목','금','토'];
+
+    document.getElementById('summaryStrip').innerHTML = Object.entries(byDate).map(([d, shifts]) => {
+        const dt = new Date(d + 'T00:00:00');
+        const dayName = dayNames[dt.getDay()];
+        const s = shifts[currentShift] || { done: 0, total: 0 };
+        const pct = s.total ? Math.round(s.done / s.total * 100) : 0;
+        const selected = d === dateInput.value;
+        return `<div class="strip-day ${selected ? 'selected' : ''} ${d === end ? 'today' : ''}" onclick="selectDate('${d}')">
+            <div class="strip-label">${d.slice(5)} ${dayName}</div>
+            <div class="strip-bar"><div class="strip-fill ${pct===100?'full':''}" style="width:${pct}%"></div></div>
+            <div class="strip-pct">${pct}%</div>
+        </div>`;
+    }).join('');
+}
+
+function selectDate(d) {
+    dateInput.value = d;
+    loadChecklist();
+    loadNotes();
+    loadSummaryStrip();
+}
+
+// Notes auto-save
+async function loadNotes() {
+    const d = dateInput.value;
+    const [purchase, handoff] = await Promise.all([
+        api(`/api/notes/${currentShift}/purchase?date=${d}`),
+        api(`/api/notes/${currentShift}/handoff?date=${d}`),
+    ]);
+    document.getElementById('purchaseNote').value = purchase.content;
+    document.getElementById('handoffNote').value = handoff.content;
+}
+
+function autoSaveNote(type) {
+    clearTimeout(noteTimers[type]);
+    noteTimers[type] = setTimeout(() => saveNote(type), 1500);
+}
+
+async function saveNote(type) {
+    const el = document.getElementById(type === 'purchase' ? 'purchaseNote' : 'handoffNote');
+    await api(`/api/notes/${currentShift}/${type}`, {
+        method: 'POST',
+        body: { content: el.value, staff_name: getSelectedStaff(), date: dateInput.value }
+    });
+}
+
+document.getElementById('purchaseNote').addEventListener('input', () => autoSaveNote('purchase'));
+document.getElementById('handoffNote').addEventListener('input', () => autoSaveNote('handoff'));
+document.getElementById('purchaseNote').addEventListener('blur', () => saveNote('purchase'));
+document.getElementById('handoffNote').addEventListener('blur', () => saveNote('handoff'));
+dateInput.addEventListener('change', () => { loadChecklist(); loadNotes(); loadSummaryStrip(); });
+
+loadStaff();
+loadChecklist();
+loadNotes();
+loadSummaryStrip();
+</script>
+{% endblock %}
