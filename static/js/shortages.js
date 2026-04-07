@@ -25,11 +25,17 @@ async function initShortages() {
             const titleText = header.textContent.trim();
             header.innerHTML = `<div class="section-title">${titleText}</div><button class="section-toggle" aria-expanded="true" type="button"><span class="collapse-arrow">▾</span></button>`;
             const btn = header.querySelector('.section-toggle');
-            btn.addEventListener('click', () => toggleCategory(cat, btn));
+            // stopPropagation in button so header click doesn't double-toggle
+            btn.addEventListener('click', (e) => { e.stopPropagation(); toggleCategory(cat, btn); });
+            // allow clicking the whole header to toggle (ignore clicks on interactive children)
+            header.addEventListener('click', (e) => {
+                if (e.target.closest('button') || e.target.tagName === 'INPUT') return;
+                toggleCategory(cat, header.querySelector('.section-toggle'));
+            });
         }
-        // insert short note for drinks
+        // insert short note for drinks (compact label)
         if (cat === 'drink' && !section.querySelector('.section-note')) {
-            section.querySelector('.section-header').insertAdjacentHTML('afterend', '<div class="section-note">좌측: 낱개 갯수 · 우측: 박스/팩 갯수</div>');
+            section.querySelector('.section-header').insertAdjacentHTML('afterend', '<div class="section-note">좌측: 낱개 · 우측: 박스/팩</div>');
         }
         // restore collapsed state
         const collapsed = localStorage.getItem('shortages_collapsed_' + cat) === '1';
@@ -74,10 +80,19 @@ function renderCategory(catKey, items) {
 
         const controls = document.createElement('div');
         controls.className = 'controls';
+        controls.style.justifyContent = 'flex-end';
 
-        // units control
-        const unitsCtl = document.createElement('div');
-        unitsCtl.className = 'count-control';
+        const compact = document.createElement('div');
+        compact.className = 'compact-group';
+
+        // units column (낱개 / 수량)
+        const unitsCol = document.createElement('div');
+        unitsCol.className = 'compact-col';
+        const uLabel = document.createElement('div');
+        uLabel.className = 'count-label';
+        uLabel.textContent = (catKey === 'drink') ? '낱개' : '수량';
+        const uCtl = document.createElement('div');
+        uCtl.className = 'count-control';
         const uMinus = document.createElement('button');
         uMinus.className = 'btn btn-outline btn-sm minus';
         uMinus.type = 'button';
@@ -92,17 +107,23 @@ function renderCategory(catKey, items) {
         uPlus.className = 'btn btn-outline btn-sm plus';
         uPlus.type = 'button';
         uPlus.textContent = '+';
+        uCtl.appendChild(uMinus);
+        uCtl.appendChild(uInput);
+        uCtl.appendChild(uPlus);
+        unitsCol.appendChild(uLabel);
+        unitsCol.appendChild(uCtl);
+        compact.appendChild(unitsCol);
 
-        unitsCtl.appendChild(uMinus);
-        unitsCtl.appendChild(uInput);
-        unitsCtl.appendChild(uPlus);
-        controls.appendChild(unitsCtl);
-
-        // box control for drinks
+        // box column (for drinks)
         let boxInput = null;
         if (it.has_box) {
-            const boxCtl = document.createElement('div');
-            boxCtl.className = 'box-control';
+            const boxCol = document.createElement('div');
+            boxCol.className = 'compact-col';
+            const bLabel = document.createElement('div');
+            bLabel.className = 'count-label';
+            bLabel.textContent = '박스';
+            const bCtl = document.createElement('div');
+            bCtl.className = 'box-control';
             const bMinus = document.createElement('button');
             bMinus.className = 'btn btn-outline btn-sm minus';
             bMinus.type = 'button';
@@ -117,11 +138,12 @@ function renderCategory(catKey, items) {
             bPlus.className = 'btn btn-outline btn-sm plus';
             bPlus.type = 'button';
             bPlus.textContent = '+';
-
-            boxCtl.appendChild(bMinus);
-            boxCtl.appendChild(boxInput);
-            boxCtl.appendChild(bPlus);
-            controls.appendChild(boxCtl);
+            bCtl.appendChild(bMinus);
+            bCtl.appendChild(boxInput);
+            bCtl.appendChild(bPlus);
+            boxCol.appendChild(bLabel);
+            boxCol.appendChild(bCtl);
+            compact.appendChild(boxCol);
 
             bMinus.addEventListener('click', () => { boxInput.value = Math.max(0, parseInt(boxInput.value || 0) - 1); saveRow(it.id, uInput, boxInput); });
             bPlus.addEventListener('click', () => { boxInput.value = Math.max(0, parseInt(boxInput.value || 0) + 1); saveRow(it.id, uInput, boxInput); });
@@ -139,6 +161,7 @@ function renderCategory(catKey, items) {
         meta.className = 'item-meta';
         meta.textContent = it.updated_by ? `수정: ${it.updated_by}` : '';
 
+        controls.appendChild(compact);
         row.appendChild(left);
         row.appendChild(controls);
         row.appendChild(meta);

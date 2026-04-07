@@ -36,22 +36,14 @@
     </div>
 </div>
 
-<!-- Confirm modal for destructive action -->
+<!-- Confirm modal for destructive action (simple) -->
 <div id="shortageConfirmModal" class="modal-overlay" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shortageConfirmTitle">
         <h2 id="shortageConfirmTitle">초기화 확인</h2>
-        <p>선택한 날짜의 모든 부족 기록을 초기화합니다. 실수로 삭제하면 복구할 수 없습니다.</p>
-        <div class="form-group">
-            <label for="confirmText">다음 단어를 입력하세요: <strong>초기화</strong></label>
-            <input id="confirmText" type="text" placeholder="초기화">
-        </div>
-        <div class="form-group">
-            <label for="adminCode">관리자 코드</label>
-            <input id="adminCode" type="password" placeholder="관리자 코드 입력 (예: 9999)">
-        </div>
+        <p>선택한 날짜의 부족 기록을 초기화하시겠습니까?</p>
         <div class="modal-actions">
             <button class="btn btn-outline" id="confirmCancelBtn">취소</button>
-            <button class="btn btn-primary" id="confirmSubmitBtn">초기화 실행</button>
+            <button class="btn btn-primary" id="confirmSubmitBtn">초기화</button>
         </div>
     </div>
 </div>
