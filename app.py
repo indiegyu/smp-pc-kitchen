@@ -382,6 +382,22 @@ def delete_category(cat_id):
     return jsonify({'ok': True})
 
 
+@app.route('/api/admin/login', methods=['POST'])
+def admin_login():
+    """
+    Simple admin authentication endpoint.
+    Expects JSON: { "password": "<password>" }.
+    The expected password must be set in the ADMIN_PASSWORD environment variable.
+    """
+    data = request.json or {}
+    password = data.get('password', '')
+    expected = os.environ.get('ADMIN_PASSWORD')
+    if not expected:
+        return jsonify({'error': 'Admin password not configured'}), 500
+    if password == expected:
+        return jsonify({'ok': True})
+    return jsonify({'error': 'Invalid password'}), 401
+
 # ─── Init DB ─────────────────────────────────────────────
 
 def init_db():
