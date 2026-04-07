@@ -183,7 +183,7 @@ body {
 
 @media (min-width: 700px) {
     .checklist-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 4px 8px;
     }
 }
@@ -769,6 +769,57 @@ input[type="date"]:focus { border-color: var(--primary); }
     cursor: default;
     -webkit-user-select: none;
     user-select: none;
+}
+
+/* ─── Top notice & Priority boxes ──────────────────── */
+.top-note {
+    position: sticky;
+    top: 64px;
+    z-index: 95;
+    padding: 8px 0;
+}
+.top-note-inner {
+    background: linear-gradient(90deg, #fff1f2, #fff8f0);
+    border-radius: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.top-note-title { font-weight: 800; color: #991b1b; font-size: 0.95rem; }
+.top-note-contacts { font-weight: 700; color: var(--text); }
+
+.top-note-list { margin-left: 16px; color: var(--text); }
+
+/* Priority box styles */
+.priority-box {
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+}
+.priority-header {
+    font-weight: 800;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    color: white;
+    font-size: 0.95rem;
+}
+/* Colors */
+.priority-1 .priority-header { background: #ff9fb0; color: #601024; } /* pink */
+.priority-2 .priority-header { background: #fde68a; color: #7a4b00; } /* yellow */
+.priority-3 .priority-header { background: #bfdbfe; color: #0f172a; } /* sky */
+.priority-4 .priority-header { background: #bbf7d0; color: #14532d; } /* light green */
+.priority-5 .priority-header { background: #e9d5ff; color: #4c0177; } /* light purple */
+
+/* ensure checklist items stay visually distinct inside priority boxes */
+.priority-box .cl-item {
+    margin-bottom: 6px;
+    border-radius: 6px;
 }
 
 /* ─── Category Pills (inventory nav) ──────────────── */
