@@ -15,6 +15,33 @@ async function initShortages() {
     q('#confirmCancelBtn').addEventListener('click', closeConfirmModal);
     q('#confirmSubmitBtn').addEventListener('click', confirmReset);
 
+    // setup collapsible headers and drink note
+    ['drink','snack','ramen'].forEach(cat => {
+        const section = q('#section-' + cat);
+        if (!section) return;
+        const header = section.querySelector('.section-header');
+        // transform header into toggle if not already
+        if (header && !header.querySelector('.section-toggle')) {
+            const titleText = header.textContent.trim();
+            header.innerHTML = `<div class="section-title">${titleText}</div><button class="section-toggle" aria-expanded="true" type="button"><span class="collapse-arrow">▾</span></button>`;
+            const btn = header.querySelector('.section-toggle');
+            btn.addEventListener('click', () => toggleCategory(cat, btn));
+        }
+        // insert short note for drinks
+        if (cat === 'drink' && !section.querySelector('.section-note')) {
+            section.querySelector('.section-header').insertAdjacentHTML('afterend', '<div class="section-note">좌측: 낱개 갯수 · 우측: 박스/팩 갯수</div>');
+        }
+        // restore collapsed state
+        const collapsed = localStorage.getItem('shortages_collapsed_' + cat) === '1';
+        if (collapsed) {
+            section.classList.add('collapsed');
+            const btn = section.querySelector('.section-toggle');
+            const arrow = btn && btn.querySelector('.collapse-arrow');
+            if (arrow) arrow.classList.add('collapsed');
+            if (btn) btn.setAttribute('aria-expanded','false');
+        }
+    });
+
     await loadShortages(dateEl.value);
 }
 
@@ -138,14 +165,26 @@ async function updateCount(itemId, units, boxes) {
     const date = q('#shortageDate').value || todayISO();
     const payload = { item_id: itemId, date: date, units: units };
     if (boxes !== undefined) payload.boxes = boxes;
-    payload.updated_by = getSelectedStaff ? getSelectedStaff() : '';
+    payload.updated_by = (typeof getSelectedStaff === 'function') ? getSelectedStaff() : '';
     try {
-        const res = await api('/api/shortages', { method: 'POST', body: payload });
-        if (res && res.ok) showToast('저장되었습니다', 'success');
-        else showToast('저장 실패', 'error');
+        // save silently on success (no per-button toast)
+        await api('/api/shortages', { method: 'POST', body: payload });
     } catch (err) {
+        // show error only on failure
         showToast('저장 실패', 'error');
     }
+}
+
+// collapsible helper
+function toggleCategory(catKey, btn) {
+    const section = document.getElementById('section-' + catKey);
+    if (!section) return;
+    const body = section.querySelector('.section-list');
+    const collapsed = section.classList.toggle('collapsed');
+    const arrow = btn && btn.querySelector('.collapse-arrow');
+    if (arrow) arrow.classList.toggle('collapsed', collapsed);
+    if (btn) btn.setAttribute('aria-expanded', (!collapsed).toString());
+    localStorage.setItem('shortages_collapsed_' + catKey, collapsed ? '1' : '0');
 }
 
 function openConfirmModal() {

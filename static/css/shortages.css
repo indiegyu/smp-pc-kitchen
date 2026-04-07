@@ -16,7 +16,11 @@
   background: transparent;
 }
 
+/* header becomes toggle button */
 .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 10px 12px;
   font-weight: 800;
   font-size: 0.95rem;
@@ -25,6 +29,34 @@
   background: var(--primary-light);
   color: var(--primary);
 }
+
+/* small explanatory note under drink header */
+.section-note {
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  margin-bottom: 8px;
+}
+
+/* header contents */
+.section-header .section-title { font-weight:800; }
+.section-toggle {
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--primary);
+}
+.collapse-arrow { transition: transform 0.18s ease; display:inline-block; }
+.collapse-arrow.collapsed { transform: rotate(-90deg); }
+
+/* when collapsed hide list and note */
+.shortages-section.collapsed .section-list,
+.shortages-section.collapsed .section-note { display: none; }
 
 .section-list {
   display: flex;
@@ -68,8 +100,20 @@
   background: var(--bg);
   text-align:center;
   font-weight:700;
+  -moz-appearance: textfield;
 }
 
+/* remove number input spinners for all browsers */
+.count-input::-webkit-outer-spin-button,
+.count-input::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] { -moz-appearance: textfield; }
+
+/* meta / updated by */
 .item-meta {
   font-size:0.8rem;
   color:var(--text-secondary);
@@ -89,3 +133,9 @@
 
 /* modal tweaks */
 #shortageConfirmModal .modal { max-width:520px; width:92%; }
+
+/* responsive tweaks */
+@media (max-width: 700px) {
+  .count-input { width:56px; }
+  .section-note { font-size:0.82rem; }
+}
