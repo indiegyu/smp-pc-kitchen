@@ -137,18 +137,21 @@ function render() {
     let html = '';
     [1,2,3,4,5,'handoff'].forEach(key => {
       const list = items.filter(i => i.priority === key);
-      if (!list.length) return;
       const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
       html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
       html += `<div class="priority-header"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><button class="btn btn-outline btn-sm priority-toggle" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></button></div></div>`;
       html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
-      html += list.map(it => `
-        <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
-            <div class="cl-check"></div>
-            <div class="cl-name">${it.name}</div>
-            ${it.completed ? `<div class="cl-meta">${it.completed_by || ''}</div>` : ''}
-        </div>
-      `).join('');
+      if (!list.length) {
+          html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+      } else {
+          html += list.map(it => `
+            <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
+                <div class="cl-check"></div>
+                <div class="cl-name">${it.name}</div>
+                ${it.completed ? `<div class="cl-meta">${it.completed_by || ''}</div>` : ''}
+            </div>
+          `).join('');
+      }
       html += `</div></div>`;
     });
 
