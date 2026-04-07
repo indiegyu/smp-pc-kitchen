@@ -78,6 +78,12 @@ const PRIORITY_KEYWORDS = {
 
 function assignPriority(name) {
   const n = name || '';
+  // 밤(야간) 근무에서는 인수인계/퇴근 관련 키워드를 최우선(1)으로 처리
+  if (typeof currentShift !== 'undefined' && currentShift === 'night') {
+    for (const kw of PRIORITY_KEYWORDS['handoff']) {
+      if (n.includes(kw)) return 1;
+    }
+  }
   for (const p of [1,2,3,4,5]) {
     for (const kw of PRIORITY_KEYWORDS[p]) {
       if (n.includes(kw)) return p;
