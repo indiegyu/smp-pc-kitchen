@@ -83,16 +83,18 @@ function renderCategory(catKey, items) {
         controls.style.justifyContent = 'flex-end';
 
         const compact = document.createElement('div');
-        compact.className = 'compact-group';
-
-        // units column (낱개 / 수량)
-        const unitsCol = document.createElement('div');
-        unitsCol.className = 'compact-col';
-        const uLabel = document.createElement('div');
-        uLabel.className = 'count-label';
+        compact.className = 'compact-group inline';
+        
+        // single-line inline counts (낱개 / 박스)
+        const inlineGroup = document.createElement('div');
+        inlineGroup.className = 'inline-counts';
+        
+        // unit inline control
+        const uLabel = document.createElement('span');
+        uLabel.className = 'count-inline-label';
         uLabel.textContent = (catKey === 'drink') ? '낱개' : '수량';
         const uCtl = document.createElement('div');
-        uCtl.className = 'count-control';
+        uCtl.className = 'inline-control';
         const uMinus = document.createElement('button');
         uMinus.className = 'btn btn-outline btn-sm minus';
         uMinus.type = 'button';
@@ -110,20 +112,17 @@ function renderCategory(catKey, items) {
         uCtl.appendChild(uMinus);
         uCtl.appendChild(uInput);
         uCtl.appendChild(uPlus);
-        unitsCol.appendChild(uLabel);
-        unitsCol.appendChild(uCtl);
-        compact.appendChild(unitsCol);
-
-        // box column (for drinks)
+        inlineGroup.appendChild(uLabel);
+        inlineGroup.appendChild(uCtl);
+        
+        // box inline control (for drinks)
         let boxInput = null;
         if (it.has_box) {
-            const boxCol = document.createElement('div');
-            boxCol.className = 'compact-col';
-            const bLabel = document.createElement('div');
-            bLabel.className = 'count-label';
+            const bLabel = document.createElement('span');
+            bLabel.className = 'count-inline-label';
             bLabel.textContent = '박스';
-            const bCtl = document.createElement('div');
-            bCtl.className = 'box-control';
+            const boxCtl = document.createElement('div');
+            boxCtl.className = 'inline-control';
             const bMinus = document.createElement('button');
             bMinus.className = 'btn btn-outline btn-sm minus';
             bMinus.type = 'button';
@@ -138,18 +137,19 @@ function renderCategory(catKey, items) {
             bPlus.className = 'btn btn-outline btn-sm plus';
             bPlus.type = 'button';
             bPlus.textContent = '+';
-            bCtl.appendChild(bMinus);
-            bCtl.appendChild(boxInput);
-            bCtl.appendChild(bPlus);
-            boxCol.appendChild(bLabel);
-            boxCol.appendChild(bCtl);
-            compact.appendChild(boxCol);
-
+            boxCtl.appendChild(bMinus);
+            boxCtl.appendChild(boxInput);
+            boxCtl.appendChild(bPlus);
+            inlineGroup.appendChild(bLabel);
+            inlineGroup.appendChild(boxCtl);
+            
             bMinus.addEventListener('click', () => { boxInput.value = Math.max(0, parseInt(boxInput.value || 0) - 1); saveRow(it.id, uInput, boxInput); });
             bPlus.addEventListener('click', () => { boxInput.value = Math.max(0, parseInt(boxInput.value || 0) + 1); saveRow(it.id, uInput, boxInput); });
             boxInput.addEventListener('blur', () => saveRow(it.id, uInput, boxInput));
             boxInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') boxInput.blur(); });
         }
+        
+        compact.appendChild(inlineGroup);
 
         // wire unit buttons
         uMinus.addEventListener('click', () => { uInput.value = Math.max(0, parseInt(uInput.value || 0) - 1); saveRow(it.id, uInput, boxInput); });

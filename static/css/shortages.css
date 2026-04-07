@@ -92,8 +92,9 @@
   align-items:center;
 }
 
+/* smaller default input to fit inline */
 .count-input {
-  width:64px;
+  width:56px;
   padding:6px 8px;
   border-radius:8px;
   border:1px solid var(--border);
@@ -112,6 +113,31 @@ input[type=number]::-webkit-inner-spin-button {
   margin: 0;
 }
 input[type=number] { -moz-appearance: textfield; }
+
+/* inline single-line counts */
+.compact-group.inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.inline-counts {
+  display:flex;
+  align-items:center;
+  gap: 12px;
+}
+.count-inline-label {
+  font-weight:700;
+  margin-right:6px;
+  color:var(--text-secondary);
+  white-space:nowrap;
+  font-size:0.92rem;
+}
+.inline-control {
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.compact-group.inline .count-input { width:48px; padding:6px 8px; }
 
 /* meta / updated by */
 .item-meta {
@@ -136,6 +162,10 @@ input[type=number] { -moz-appearance: textfield; }
 
 /* responsive tweaks */
 @media (max-width: 700px) {
-  .count-input { width:56px; }
+  .count-input { width:48px; }
   .section-note { font-size:0.82rem; }
+  /* stack inline counts on very small screens */
+  .compact-group.inline { flex-direction: column; align-items: flex-start; gap:8px; }
+  .compact-group.inline .inline-counts { width:100%; display:flex; gap:8px; flex-wrap:wrap; }
+  .compact-group.inline .inline-control { flex:0 0 auto; }
 }
