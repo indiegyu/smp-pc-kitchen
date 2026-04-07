@@ -88,3 +88,27 @@ class InventoryTransaction(db.Model):
     note = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.now)
     created_by = db.Column(db.String(50))
+
+class ShortageItem(db.Model):
+    __tablename__ = 'shortage_items'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    category = db.Column(db.String(20), nullable=False)  # 'drink', 'snack', 'ramen'
+    has_box = db.Column(db.Boolean, default=False)
+    sort_order = db.Column(db.Integer, default=0)
+
+    counts = db.relationship('ShortageCount', backref='item', lazy='dynamic')
+
+class ShortageCount(db.Model):
+    __tablename__ = 'shortage_counts'
+    id = db.Column(db.Integer, primary_key=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('shortage_items.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    units = db.Column(db.Integer, default=0)
+    boxes = db.Column(db.Integer)
+    updated_by = db.Column(db.String(50))
+    updated_at = db.Column(db.DateTime, default=datetime.now)
+
+    __table_args__ = (
+        db.UniqueConstraint('item_id', 'date', name='uq_shortage_item_date'),
+    )

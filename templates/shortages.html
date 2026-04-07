@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}부족 재고 체크 - SMP PC Kitchen{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/css/shortages.css">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>부족 재고 체크</h1>
+    <div class="header-controls">
+        <input type="date" id="shortageDate" value="">
+        <button class="btn btn-outline btn-sm" id="resetCountsBtn">초기화</button>
+        <button class="btn btn-outline btn-sm" id="viewHistoryBtn">최근 기록</button>
+    </div>
+</div>
+
+<div class="shortages-page">
+    <div class="shortages-section" id="section-drink">
+        <div class="section-header">음료</div>
+        <div class="section-list" id="list-drink"></div>
+    </div>
+
+    <div class="shortages-section" id="section-snack">
+        <div class="section-header">과자</div>
+        <div class="section-list" id="list-snack"></div>
+    </div>
+
+    <div class="shortages-section" id="section-ramen">
+        <div class="section-header">라면</div>
+        <div class="section-list" id="list-ramen"></div>
+    </div>
+
+    <div class="history-panel" id="historyPanel" style="display:none;">
+        <div class="section-header">최근 기록</div>
+        <div id="historyContent"></div>
+    </div>
+</div>
+
+<!-- Confirm modal for destructive action -->
+<div id="shortageConfirmModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shortageConfirmTitle">
+        <h2 id="shortageConfirmTitle">초기화 확인</h2>
+        <p>선택한 날짜의 모든 부족 기록을 초기화합니다. 실수로 삭제하면 복구할 수 없습니다.</p>
+        <div class="form-group">
+            <label for="confirmText">다음 단어를 입력하세요: <strong>초기화</strong></label>
+            <input id="confirmText" type="text" placeholder="초기화">
+        </div>
+        <div class="form-group">
+            <label for="adminCode">관리자 코드</label>
+            <input id="adminCode" type="password" placeholder="관리자 코드 입력 (예: 9999)">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" id="confirmCancelBtn">취소</button>
+            <button class="btn btn-primary" id="confirmSubmitBtn">초기화 실행</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/shortages.js"></script>
+{% endblock %}

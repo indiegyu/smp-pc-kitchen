@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from models import db, Staff, ChecklistItem, ChecklistLog, DailyNote, \
-    InventoryCategory, InventoryItem, InventoryTransaction
+    InventoryCategory, InventoryItem, InventoryTransaction, ShortageItem, ShortageCount
 from datetime import datetime, date, timedelta
 import os
 
@@ -388,24 +388,126 @@ def admin_login():
     Simple admin authentication endpoint.
     Expects JSON: { "password": "<password>" }.
     The expected password must be set in the ADMIN_PASSWORD environment variable.
+    Accepts special local shortcut '9999' for quick access.
     """
     data = request.json or {}
     password = data.get('password', '')
     expected = os.environ.get('ADMIN_PASSWORD')
+    # local shortcut allowed
+    if password == '9999':
+        return jsonify({'ok': True})
     if not expected:
         return jsonify({'error': 'Admin password not configured'}), 500
     if password == expected:
         return jsonify({'ok': True})
     return jsonify({'error': 'Invalid password'}), 401
 
+# ─── Shortages Page & API ─────────────────────────────────
+@app.route('/manage/shortages')
+def manage_shortages():
+    return render_template('shortages.html')
+
+@app.route('/api/shortages')
+def get_shortages():
+    target_date = request.args.get('date', date.today().isoformat())
+    target_date = date.fromisoformat(target_date)
+    items = ShortageItem.query.order_by(ShortageItem.sort_order).all()
+    result = []
+    for item in items:
+        count = ShortageCount.query.filter_by(item_id=item.id, date=target_date).first()
+        result.append({
+            'id': item.id,
+            'name': item.name,
+            'category': item.category,
+            'has_box': bool(item.has_box),
+            'units': count.units if count else 0,
+            'boxes': count.boxes if (count and count.boxes is not None) else (0 if item.has_box else None),
+        })
+    return jsonify(result)
+
+@app.route('/api/shortages', methods=['POST'])
+def update_shortage():
+    data = request.json or {}
+    item_id = data.get('item_id')
+    if item_id is None:
+        return jsonify({'error': 'item_id required'}), 400
+    target_date = date.fromisoformat(data.get('date', date.today().isoformat()))
+    try:
+        units = int(data.get('units', 0))
+    except:
+        units = 0
+    boxes = data.get('boxes')
+    try:
+        boxes = int(boxes) if boxes is not None and boxes != '' else None
+    except:
+        boxes = None
+    staff = data.get('updated_by', '')
+    sc = ShortageCount.query.filter_by(item_id=item_id, date=target_date).first()
+    if sc:
+        sc.units = units
+        sc.boxes = boxes
+        sc.updated_by = staff
+        sc.updated_at = datetime.now()
+    else:
+        sc = ShortageCount(
+            item_id=item_id, date=target_date, units=units, boxes=boxes,
+            updated_by=staff, updated_at=datetime.now()
+        )
+        db.session.add(sc)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/shortages', methods=['DELETE'])
+def delete_shortages():
+    target_date = date.fromisoformat(request.args.get('date', date.today().isoformat()))
+    data = request.json or {}
+    password = data.get('password', '')
+    expected = os.environ.get('ADMIN_PASSWORD')
+    if password != '9999' and (not expected or password != expected):
+        return jsonify({'error': 'Invalid admin password'}), 401
+    ShortageCount.query.filter_by(date=target_date).delete()
+    db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/shortages/history')
+def shortages_history():
+    days = int(request.args.get('days', 7))
+    end = date.today()
+    start = end - timedelta(days=days-1)
+    results = []
+    current = start
+    while current <= end:
+        day_counts = ShortageCount.query.filter_by(date=current).all()
+        results.append({
+            'date': current.isoformat(),
+            'counts': [{
+                'item_id': c.item_id,
+                'units': c.units,
+                'boxes': c.boxes,
+                'updated_by': c.updated_by,
+                'updated_at': c.updated_at.strftime('%Y-%m-%d %H:%M') if c.updated_at else None
+            } for c in day_counts]
+        })
+        current += timedelta(days=1)
+    return jsonify(results)
+
 # ─── Init DB ─────────────────────────────────────────────
 
 def init_db():
-    from seed_data import DAYTIME_CHECKLIST, NIGHTTIME_CHECKLIST, INVENTORY_DATA
+    from seed_data import DAYTIME_CHECKLIST, NIGHTTIME_CHECKLIST, INVENTORY_DATA, SHORTAGE_ITEMS
 
     db.create_all()
 
     if ChecklistItem.query.first():
+        # DB already seeded — ensure shortage master exists
+        if not ShortageItem.query.first():
+            order = 0
+            for cat, names in SHORTAGE_ITEMS.items():
+                for nm in names:
+                    db.session.add(ShortageItem(name=nm, category=cat, has_box=(cat == 'drink'), sort_order=order))
+                    order += 1
+            db.session.commit()
+            print("Shortage master list seeded.")
         return
 
     for i, name in enumerate(['윤진한', '김가영', '안재현', '박성규', '제은서', '최지훈']):
@@ -431,6 +533,13 @@ def init_db():
                 category_id=cat.id, name=name, location=location,
                 sort_order=idx, quantity=0,
             ))
+
+    # seed shortages master list
+    order = 0
+    for cat, names in SHORTAGE_ITEMS.items():
+        for nm in names:
+            db.session.add(ShortageItem(name=nm, category=cat, has_box=(cat == 'drink'), sort_order=order))
+            order += 1
 
     db.session.commit()
     print("Database initialized with seed data.")
