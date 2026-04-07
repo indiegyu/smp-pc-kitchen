@@ -773,11 +773,14 @@ input[type="date"]:focus { border-color: var(--primary); }
 
 /* ─── Top notice & Priority boxes ──────────────────── */
 .top-note {
-    position: sticky;
-    top: 64px;
+    /* make top-note flow with page to avoid obscuring content */
+    position: relative;
+    top: auto;
     z-index: 95;
     padding: 8px 0;
 }
+.top-note.collapsed .top-note-inner { padding-bottom: 6px; }
+.top-note.collapsed .top-note-list { display: none; }
 .top-note-inner {
     background: linear-gradient(90deg, #fff1f2, #fff8f0);
     border-radius: 10px;
@@ -787,6 +790,8 @@ input[type="date"]:focus { border-color: var(--primary); }
     display: flex;
     flex-direction: column;
     gap: 6px;
+    transition: padding 0.12s ease, max-height 0.15s ease;
+    overflow: visible;
 }
 .top-note-title { font-weight: 800; color: #991b1b; font-size: 0.95rem; }
 .top-note-contacts { font-weight: 700; color: var(--text); }
@@ -808,7 +813,14 @@ input[type="date"]:focus { border-color: var(--primary); }
     margin-bottom: 8px;
     color: white;
     font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
+.priority-header .prio-icon { margin-right: 8px; font-size: 1.05rem; vertical-align: middle; }
+.priority-header .priority-toggle { border: none; background: transparent; padding: 4px; margin-left: 8px; cursor: pointer; }
+.priority-body { transition: max-height 0.18s ease, opacity 0.12s; }
+.priority-body.collapsed { display: none; }
 /* Colors */
 .priority-1 .priority-header { background: #ff9fb0; color: #601024; } /* pink */
 .priority-2 .priority-header { background: #fde68a; color: #7a4b00; } /* yellow */

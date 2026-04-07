@@ -15,10 +15,17 @@
     <div class="staff-buttons" id="staffButtons"></div>
 </div>
 
-<div class="top-note">
+<div class="top-note" id="topNote">
     <div class="top-note-inner">
-        <div class="top-note-title">필수 체크사항 — 모든 근무자가 볼 것</div>
-        <div class="top-note-contacts">점장님: 010-9291-4176 &nbsp; / &nbsp; 사장님: 010-2796-1075</div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+            <div>
+                <div class="top-note-title">필수 체크사항 — 모든 근무자가 볼 것</div>
+                <div class="top-note-contacts">점장님: 010-9291-4176 &nbsp; / &nbsp; 사장님: 010-2796-1075</div>
+            </div>
+            <div>
+                <button class="btn btn-outline btn-sm" id="topNoteToggle" onclick="toggleTopNote()" aria-expanded="true" title="닫기/열기">닫기</button>
+            </div>
+        </div>
         <ul class="top-note-list">
             <li>튀김기는 쓸 때만 켜세요. 안 쓸 때는 반드시 끄기!</li>
             <li>식대는 판매 음식 기준 8천원까지 입니다. 시트에 꼭 기록해주세요.</li>
@@ -125,12 +132,16 @@ function render() {
       'handoff': {title: '오전 인수인계전 체크사항', cls: 'priority-1'}
     };
 
+    const icons = {1: '⚠️', 2: '🧼', 3: '🧹', 4: '📦', 5: '🔧', 'handoff': '🔁'};
+
     let html = '';
     [1,2,3,4,5,'handoff'].forEach(key => {
       const list = items.filter(i => i.priority === key);
       if (!list.length) return;
-      html += `<div class="priority-box ${groups[key].cls || ''}">`;
-      html += `<div class="priority-header">${groups[key].title}</div>`;
+      const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
+      html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
+      html += `<div class="priority-header"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><button class="btn btn-outline btn-sm priority-toggle" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></button></div></div>`;
+      html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
       html += list.map(it => `
         <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
             <div class="cl-check"></div>
@@ -138,10 +149,31 @@ function render() {
             ${it.completed ? `<div class="cl-meta">${it.completed_by || ''}</div>` : ''}
         </div>
       `).join('');
-      html += `</div>`;
+      html += `</div></div>`;
     });
 
     container.innerHTML = html;
+}
+
+function togglePriorityBox(key, btn) {
+    const box = document.querySelector('.priority-box[data-key="'+key+'"]');
+    if (!box) return;
+    const body = box.querySelector('.priority-body');
+    const arrow = btn && btn.querySelector('.collapse-arrow');
+    const collapsed = body.classList.toggle('collapsed');
+    if (arrow) arrow.classList.toggle('collapsed', collapsed);
+    btn.setAttribute('aria-expanded', (!collapsed).toString());
+    localStorage.setItem('prio_collapsed_' + key, collapsed ? '1' : '0');
+}
+
+function toggleTopNote() {
+    const top = document.getElementById('topNote');
+    const btn = document.getElementById('topNoteToggle');
+    if (!top || !btn) return;
+    const collapsed = top.classList.toggle('collapsed');
+    btn.textContent = collapsed ? '열기' : '닫기';
+    btn.setAttribute('aria-expanded', (!collapsed).toString());
+    localStorage.setItem('topnote_collapsed', collapsed ? '1' : '0');
 }
 
 async function toggleItemById(id) {
@@ -225,5 +257,29 @@ loadStaff();
 loadChecklist();
 loadNotes();
 loadSummaryStrip();
+// restore UI prefs (top-note + priority collapsed state)
+(function restoreUI() {
+    const topCollapsed = localStorage.getItem('topnote_collapsed') === '1';
+    const top = document.getElementById('topNote');
+    const btn = document.getElementById('topNoteToggle');
+    if (top && btn && topCollapsed) {
+        top.classList.add('collapsed');
+        btn.textContent = '열기';
+        btn.setAttribute('aria-expanded', 'false');
+    }
+    setTimeout(() => {
+        [1,2,3,4,5,'handoff'].forEach(k => {
+            const collapsed = localStorage.getItem('prio_collapsed_' + k) === '1';
+            const box = document.querySelector('.priority-box[data-key="'+k+'"]');
+            if (!box) return;
+            const body = box.querySelector('.priority-body');
+            const btn = box.querySelector('.priority-toggle');
+            const arrow = btn && btn.querySelector('.collapse-arrow');
+            if (body) body.classList.toggle('collapsed', collapsed);
+            if (arrow) arrow.classList.toggle('collapsed', collapsed);
+            if (btn) btn.setAttribute('aria-expanded', (!collapsed).toString());
+        });
+    }, 80);
+})();
 </script>
 {% endblock %}
