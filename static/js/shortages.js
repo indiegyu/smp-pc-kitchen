@@ -33,10 +33,7 @@ async function initShortages() {
                 toggleCategory(cat, header.querySelector('.section-toggle'));
             });
         }
-        // insert short note for drinks (compact label)
-        if (cat === 'drink' && !section.querySelector('.section-note')) {
-            section.querySelector('.section-header').insertAdjacentHTML('afterend', '<div class="section-note">좌측: 낱개 · 우측: 박스/팩</div>');
-        }
+        
         // restore collapsed state
         const collapsed = localStorage.getItem('shortages_collapsed_' + cat) === '1';
         if (collapsed) {
@@ -120,7 +117,7 @@ function renderCategory(catKey, items) {
         if (it.has_box) {
             const bLabel = document.createElement('span');
             bLabel.className = 'count-inline-label';
-            bLabel.textContent = '박스';
+            bLabel.textContent = '박스/팩';
             const boxCtl = document.createElement('div');
             boxCtl.className = 'inline-control';
             const bMinus = document.createElement('button');
