@@ -20,7 +20,10 @@
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
             <div>
                 <div class="top-note-title">필수 체크사항 — 모든 근무자가 볼 것</div>
-                <div class="top-note-contacts">점장님: 010-9291-4176 &nbsp; / &nbsp; 사장님: 010-2796-1075</div>
+                <div class="top-note-contacts">
+                    <div>점장님: 010-9291-4176</div>
+                    <div>사장님: 010-2796-1075</div>
+                </div>
             </div>
             <div>
                 <button class="btn btn-outline btn-sm" id="topNoteToggle" onclick="toggleTopNote()" aria-expanded="true" title="닫기/열기">닫기</button>
@@ -95,6 +98,18 @@ function assignPriority(name) {
   return 3;
 }
 
+/* Night checklist grouping: map items into 마감 청소 1 / 마감 청소 2 / 마감 */
+function mapNightGroup(name) {
+  const n = name || '';
+  const closing = ['최종 정산','인수인계','퇴근','무인','카드기','가게폰','제트건','노트북','퇴근 카드'];
+  for (const kw of closing) { if (n.includes(kw)) return 'closing'; }
+  const mc2 = ['카페 냉장고','카페','라면 기계','라면','인덕션','튀김','간택기','오븐','장비','세척','기계','래들','스쿱','젓가락','냉동'];
+  for (const kw of mc2) { if (n.includes(kw)) return 'mc2'; }
+  const mc1 = ['최후의 수거','좌석 청소','좌석','설거지','식세기','싱크','노란바구니','수거','정리','물빼기'];
+  for (const kw of mc1) { if (n.includes(kw)) return 'mc1'; }
+  return 'mc1';
+}
+
 async function loadStaff() {
     const staff = await api('/api/staff');
     const container = document.getElementById('staffButtons');
@@ -121,7 +136,7 @@ function switchShift(shift) {
 
 async function loadChecklist() {
     items = await api(`/api/checklist/${currentShift}?date=${dateInput.value}`);
-    items = items.map(it => ({...it, priority: assignPriority(it.name)}));
+    items = items.map(it => ({...it, priority: assignPriority(it.name), night_group: (currentShift === 'night' ? mapNightGroup(it.name) : null)}));
     render();
 }
 
@@ -129,6 +144,39 @@ function render() {
     const container = document.getElementById('checklistContainer');
     if (!items.length) { container.innerHTML = '<div class="card"><div class="card-body"><div style="padding:12px">No items</div></div></div>'; return; }
 
+    // Night shift: group into 마감 청소 1 / 마감 청소 2 / 마감
+    if (currentShift === 'night') {
+      const groups = {
+        mc1: {title: '마감 청소 1', cls: 'priority-1'},
+        mc2: {title: '마감 청소 2', cls: 'priority-2'},
+        closing: {title: '마감', cls: 'priority-3'}
+      };
+      const icons = {mc1: '🧹', mc2: '🧽', closing: '🏁'};
+      let html = '';
+      ['mc1','mc2','closing'].forEach(key => {
+        const list = items.filter(i => (i.night_group || mapNightGroup(i.name)) === key);
+        const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
+        html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
+        html += `<div class="priority-header"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><button class="btn btn-outline btn-sm priority-toggle" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></button></div></div>`;
+        html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
+        if (!list.length) {
+            html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+        } else {
+            html += list.map(it => `
+              <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
+                  <div class="cl-check"></div>
+                  <div class="cl-name">${it.name}</div>
+                  ${it.completed ? `<div class="cl-meta">${it.completed_by || ''}</div>` : ''}
+              </div>
+            `).join('');
+        }
+        html += `</div></div>`;
+      });
+      container.innerHTML = html;
+      return;
+    }
+
+    // Day shift: original priority groups
     const groups = {
       1: {title: '우선순위 1 (Top Priority)', cls: 'priority-1'},
       2: {title: '우선순위 2 (주방 정리)', cls: 'priority-2'},
