@@ -1,0 +1,7 @@
+[
+  {"id": 1, "name": "1 - Top", "sort_order": 0},
+  {"id": 2, "name": "2 - 주방 정리", "sort_order": 1},
+  {"id": 3, "name": "3 - 업장 청소", "sort_order": 2},
+  {"id": 4, "name": "4 - 재고 채우기", "sort_order": 3},
+  {"id": 5, "name": "5 - 전문 작업", "sort_order": 4}
+]
