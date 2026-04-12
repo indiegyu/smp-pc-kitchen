@@ -98,7 +98,12 @@
                     if (res && res.ok) {
                         showToast('관리자 인증 성공', 'success');
                         hideModal();
-                        window.location.href = '/manage/shortages';
+                        const role = res.role || 'admin';
+                        if (role === 'shortages') {
+                            window.location.href = '/manage/shortages';
+                        } else {
+                            window.location.href = '/manage';
+                        }
                     } else {
                         showToast(res && res.error ? res.error : '인증 실패', 'error');
                     }

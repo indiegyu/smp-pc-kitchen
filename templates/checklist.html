@@ -53,8 +53,12 @@
         <button class="entry-shift-btn" data-shift="night" data-selected="false" onclick="selectShiftInModal('night')" data-shift-label>오후</button>
       </div>
     </div>
-    <div class="entry-right" id="entryRight" aria-live="polite">
-      <h3 id="entryRightTitle" style="margin-top:0;margin-bottom:12px;">직원 선택</h3>
+    <div class="entry-right" id="entryRight" aria-live="polite" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <button class="btn btn-outline btn-sm" id="entryBackBtn" onclick="showShiftStep()">이전</button>
+        <h3 id="entryRightTitle" style="margin:0;">직원 선택</h3>
+        <div style="width:40px"></div>
+      </div>
       <div class="entry-staff-list" id="entryStaffList"></div>
     </div>
     <button class="entry-close" aria-label="닫기" onclick="hideEntryModal()" style="position:absolute;top:12px;right:12px;background:transparent;border:none;font-size:26px;color:var(--text-secondary)">×</button>
@@ -187,8 +191,37 @@ async function showEntryModal() {
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden','false');
   const storedShift = localStorage.getItem('smp_shift') || 'day';
-  selectShiftInModal(storedShift);
+  // highlight stored shift but stay on shift selection step
+  document.querySelectorAll('.entry-shift-btn').forEach(b => {
+    const s = b.getAttribute('data-shift');
+    if (s === storedShift) { b.classList.add('selected'); b.setAttribute('data-selected','true'); } else { b.classList.remove('selected'); b.setAttribute('data-selected','false'); }
+  });
+  showShiftStep();
   return new Promise(resolve => { entryResolve = resolve; });
+}
+
+function showShiftStep() {
+  const left = document.querySelector('.entry-left');
+  const right = document.getElementById('entryRight');
+  const inner = document.querySelector('.entry-modal-inner');
+  if (left) left.style.display = '';
+  if (right) { right.style.display = 'none'; right.style.width = '60%'; }
+  if (inner) inner.style.flexDirection = '';
+}
+
+function showStaffStep() {
+  const left = document.querySelector('.entry-left');
+  const right = document.getElementById('entryRight');
+  const inner = document.querySelector('.entry-modal-inner');
+  if (left) left.style.display = 'none';
+  if (right) { right.style.display = ''; right.style.width = '100%'; }
+  if (inner) inner.style.flexDirection = 'row';
+  renderStaffList(modalSelectedShift);
+}
+
+function hideTopStaffBar() {
+  const sb = document.querySelector('.staff-bar');
+  if (sb) sb.style.display = 'none';
 }
 
 function hideEntryModal() {
@@ -204,7 +237,7 @@ function selectShiftInModal(shift) {
     const s = b.getAttribute('data-shift');
     if (s === shift) { b.classList.add('selected'); b.setAttribute('data-selected','true'); } else { b.classList.remove('selected'); b.setAttribute('data-selected','false'); }
   });
-  renderStaffList(shift);
+  showStaffStep();
 }
 
 async function renderStaffList(shift) {
@@ -241,6 +274,7 @@ function confirmStaff(s) {
   localStorage.setItem('smp_selected_date', sd);
   currentShift = modalSelectedShift;
   updateBadge(currentShift, s.name);
+  hideTopStaffBar();
   hideEntryModal();
   if (entryResolve) { entryResolve(); entryResolve = null; }
 }
@@ -489,6 +523,7 @@ loadStaff();
     if (selectionExists()) {
         currentShift = localStorage.getItem('smp_shift') || 'day';
         updateBadge(currentShift, localStorage.getItem('smp_staff') || '');
+        hideTopStaffBar();
     } else {
         await showEntryModal();
     }

@@ -388,18 +388,28 @@ def admin_login():
     Simple admin authentication endpoint.
     Expects JSON: { "password": "<password>" }.
     The expected password must be set in the ADMIN_PASSWORD environment variable.
-    Accepts special local shortcut '9999' for quick access.
+    Special shortcuts:
+      - '0000' : legacy admin access (admin dashboard /manage)
+      - '9999' : shortages/inventory quick access (/manage/shortages)
     """
     data = request.json or {}
     password = data.get('password', '')
     expected = os.environ.get('ADMIN_PASSWORD')
-    # local shortcut allowed
+
+    # shortages shortcut -> limited access to shortages page
     if password == '9999':
-        return jsonify({'ok': True})
+        return jsonify({'ok': True, 'role': 'shortages'})
+
+    # legacy local admin shortcut -> full admin
+    if password == '0000':
+        return jsonify({'ok': True, 'role': 'admin'})
+
+    # production admin password
     if not expected:
         return jsonify({'error': 'Admin password not configured'}), 500
     if password == expected:
-        return jsonify({'ok': True})
+        return jsonify({'ok': True, 'role': 'admin'})
+
     return jsonify({'error': 'Invalid password'}), 401
 
 # ─── Shortages Page & API ─────────────────────────────────
