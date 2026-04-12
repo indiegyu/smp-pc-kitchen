@@ -400,7 +400,6 @@ body {
 .cat-card.collapsed > div:nth-child(2) {
     display: none !important;
 }
-.cat-card.collapsed .cat-drag,
 .cat-card.collapsed .cat-move-btns,
 .cat-card.collapsed .move-btns {
     display: none !important;
@@ -866,17 +865,15 @@ input[type="date"]:focus { border-color: var(--primary); }
     padding: 8px 0;
 }
 .top-note.collapsed .top-note-inner { padding-bottom: 6px; }
-.top-note.collapsed .top-note-list { display: none; }
 
-/* Toggle behavior:
-   - when contacts are hidden (.contacts-hidden) show the checklist list in bold
-   - when contacts are visible (no .contacts-hidden) hide the checklist list and show contacts (normal weight)
+/* Behavior:
+   - top-note-list is always visible and bold
+   - topNoteToggle only toggles .top-note-contacts visibility
 */
 .top-note-contacts.hidden { display: none; }
 .top-note.contacts-hidden .top-note-contacts { display: none; }
-.top-note:not(.contacts-hidden) .top-note-list { display: none; }
-.top-note.contacts-hidden .top-note-list { display: block; font-weight: 800; }
-.top-note:not(.contacts-hidden) .top-note-contacts { font-weight: 400; }
+.top-note-list { margin-left: 16px; color: var(--text); font-weight: 800; display: block; }
+.top-note-contacts { font-weight: 400; color: var(--text); }
 
 .top-note-inner {
     background: linear-gradient(90deg, #fff1f2, #fff8f0);
@@ -891,9 +888,9 @@ input[type="date"]:focus { border-color: var(--primary); }
     overflow: visible;
 }
 .top-note-title { font-weight: 800; color: #991b1b; font-size: 0.95rem; }
-.top-note-contacts { font-weight: 700; color: var(--text); }
+.top-note-contacts { font-weight: 400; color: var(--text); }
 
-.top-note-list { margin-left: 16px; color: var(--text); }
+.top-note-list { margin-left: 16px; color: var(--text); font-weight: 800; }
 
 /* Priority box styles */
 .priority-box {
@@ -1068,6 +1065,17 @@ input[type="date"]:focus { border-color: var(--primary); }
 }
 
 .inv-card-header.collapsed .toggle-arrow {
+    transform: rotate(-90deg);
+}
+
+/* Cat-card header toggle arrow (right-side) */
+.cat-card-header .toggle-arrow {
+    transition: transform 0.2s;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-left: 8px;
+}
+.cat-card.collapsed .cat-card-header .toggle-arrow {
     transform: rotate(-90deg);
 }
 

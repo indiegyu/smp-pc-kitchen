@@ -234,6 +234,7 @@
           <strong class="cat-name" style="flex:1">${escapeHtml(cat.name)}</strong>
           <button class="btn btn-outline btn-sm cat-edit-btn">이름변경</button>
           <button class="btn btn-sm cat-del-btn" style="background:var(--danger-light);color:var(--danger)">삭제</button>
+          <span class="toggle-arrow" aria-hidden="true">▾</span>
         </div>
         <div style="margin-top:8px;padding-left:24px">
           <div style="display:flex;gap:8px;margin-bottom:8px">

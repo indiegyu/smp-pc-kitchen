@@ -190,16 +190,26 @@ async function removeStaff(id) { await api(`/api/staff/${id}`, { method: 'DELETE
 /* Summary (checklist) */
 async function loadSummary() {
     if (!exists('summaryCards')) return;
-const end = (viewDate && viewDate.value && viewDate.value.trim()) ? viewDate.value : new Date().toISOString().split('T')[0];
-const start = new Date(new Date(end + 'T00:00:00').getTime() - 4 * 86400000).toISOString().split('T')[0];
+    const end = (viewDate && viewDate.value && viewDate.value.trim()) ? viewDate.value : new Date().toISOString().split('T')[0];
+    const endDate = new Date(end + 'T00:00:00');
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - 4); // show 5 days: today and 4 days prior
+    const start = startDate.toISOString().split('T')[0];
     const data = await api(`/api/checklist/summary?start=${start}&end=${end}`);
     const byDate = {};
     data.forEach(r => { if (!byDate[r.date]) byDate[r.date] = {}; byDate[r.date][r.shift] = r; });
     const dayNames = ['일','월','화','수','목','금','토'];
-    document.getElementById('summaryCards').innerHTML = Object.keys(byDate).map(d => {
+    // build exact 5-day list to ensure exactly 5 cards (including today)
+    const dates = [];
+    const curr = new Date(startDate);
+    while (curr <= endDate) {
+        dates.push(curr.toISOString().split('T')[0]);
+        curr.setDate(curr.getDate() + 1);
+    }
+    document.getElementById('summaryCards').innerHTML = dates.map(d => {
         const dt = new Date(d + 'T00:00:00');
-        const dayData = byDate[d].day || {done:0,total:0};
-        const nightData = byDate[d].night || {done:0,total:0};
+        const dayData = (byDate[d] && byDate[d].day) || {done:0,total:0};
+        const nightData = (byDate[d] && byDate[d].night) || {done:0,total:0};
         const dayPct = dayData.total ? Math.round(dayData.done/dayData.total*100) : 0;
         const nightPct = nightData.total ? Math.round(nightData.done/nightData.total*100) : 0;
         return `
