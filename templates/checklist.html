@@ -9,7 +9,7 @@
         <input type="date" id="dateInput" value="">
         <div id="currentSelectionBadge" class="current-badge" style="display:inline-flex;align-items:center;margin-left:12px;">
             <span id="badgeText"></span>
-            <button class="btn btn-outline btn-sm" id="changeEntryBtn" style="margin-left:8px;display:none" onclick="showEntryModal()">변경</button>
+            <button class="btn btn-outline btn-sm" id="changeEntryBtn" style="margin-left:8px;display:none" onclick="resetSelection()">변경</button>
         </div>
     </div>
 </div>
@@ -331,7 +331,7 @@ async function renderStaffList(shift) {
 }
 
 function confirmStaff(s) {
-  const sd = getResetIsoDate();
+  const sd = (dateInput && dateInput.value && dateInput.value.trim()) ? dateInput.value : getResetIsoDate();
   localStorage.setItem('smp_shift', modalSelectedShift);
   localStorage.setItem('smp_staff', s.name);
   localStorage.setItem('smp_selected_date', sd);
@@ -550,15 +550,9 @@ async function loadSummaryStrip() {
     document.getElementById('summaryStrip').innerHTML = dates.map(d => {
         const dt = parseYMD(d);
         const dayName = dayNames[dt.getDay()];
-        const dayData = (byDate[d] && byDate[d].day) ? byDate[d].day : {done:0,total:0};
-        const nightData = (byDate[d] && byDate[d].night) ? byDate[d].night : {done:0,total:0};
-        const dayPct = dayData.total ? Math.round(dayData.done/dayData.total*100) : 0;
-        const nightPct = nightData.total ? Math.round(nightData.done/nightData.total*100) : 0;
         const selected = d === selectedDate;
         return `<div class="strip-day ${selected ? 'selected' : ''} ${d === end ? 'today' : ''}" onclick="selectDate('${d}')">
-            <div class="sdc-date">${d.slice(5)} (${dayName})</div>
-            <div class="sdc-row"><span class="sdc-label">주간</span><div class="sdc-bar"><div class="sdc-fill ${dayPct===100?'full':''}" style="width:${dayPct}%"></div></div></div>
-            <div class="sdc-row"><span class="sdc-label">야간</span><div class="sdc-bar"><div class="sdc-fill ${nightPct===100?'full':''}" style="width:${nightPct}%"></div></div></div>
+            <div class="strip-label">${d.slice(5)} ${dayName}</div>
         </div>`;
     }).join('');
 }
