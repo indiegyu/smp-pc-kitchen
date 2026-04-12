@@ -12,16 +12,22 @@
     <nav class="navbar {% block nav_class %}{% endblock %}">
         <div style="display:flex;align-items:center;gap:8px;">
             <div class="nav-brand" id="navBrand">SMP PC Kitchen</div>
-            {% if request.path.startswith('/manage') %}
+            {% if request.path.startswith('/manage') and not request.path.startswith('/manage/shortages') %}
             <button id="homeBtn" class="btn btn-outline btn-sm" aria-label="일반">일반</button>
             {% else %}
             <button id="adminBtn" class="btn btn-outline btn-sm" aria-label="관리">관리</button>
             {% endif %}
         </div>
-        {% block nav_links %}
+            {% block nav_links %}
         <div class="nav-links">
-            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">체크리스트</a>
-            <a href="/inventory" class="nav-link {% if request.path == '/inventory' %}active{% endif %}">재고</a>
+            {% if request.path.startswith('/manage') and not request.path.startswith('/manage/shortages') %}
+                <a href="/manage/checklist" class="nav-link {% if request.path == '/manage' or request.path.startswith('/manage/checklist') %}active{% endif %}">운영</a>
+                <a href="/manage/inventory" class="nav-link {% if request.path.startswith('/manage/inventory') %}active{% endif %}">재고</a>
+                <a href="/manage/settings" class="nav-link {% if request.path.startswith('/manage/settings') %}active{% endif %}">설정</a>
+            {% else %}
+                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">체크리스트</a>
+                <a href="/inventory" class="nav-link {% if request.path == '/inventory' %}active{% endif %}">재고</a>
+            {% endif %}
         </div>
         {% endblock %}
     </nav>

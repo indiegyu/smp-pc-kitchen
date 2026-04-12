@@ -52,50 +52,7 @@
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header" onclick="toggleSection('catMgmt')">
-        <span>카테고리 관리</span><span class="collapse-arrow">&#9660;</span>
-    </div>
-    <div class="card-body collapsed" id="catMgmt" style="padding:16px">
-        <div id="catList" style="margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px">
-            <input type="text" id="newCatName" placeholder="새 카테고리명"
-                   onkeydown="if(event.key==='Enter')addCategory()"
-                   style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px">
-            <button class="btn btn-primary btn-sm" onclick="addCategory()">추가</button>
-        </div>
-    </div>
-</div>
 
-<div class="card">
-    <div class="card-header" onclick="toggleSection('invMgmt')">
-        <span>재고 품목 관리</span><span class="collapse-arrow">&#9660;</span>
-    </div>
-    <div class="card-body collapsed" id="invMgmt" style="padding:16px">
-        <div style="margin-bottom:16px">
-            <h3 style="font-size:0.95rem;margin-bottom:8px">품목 추가</h3>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-                <div class="form-group" style="flex:1;min-width:120px;margin:0">
-                    <label>카테고리</label>
-                    <select id="addItemCat" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px"></select>
-                </div>
-                <div class="form-group" style="flex:2;min-width:150px;margin:0">
-                    <label>품목명</label>
-                    <input type="text" id="addItemName" placeholder="품목명"
-                           onkeydown="if(event.key==='Enter')addInventoryItem()"
-                           style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px">
-                </div>
-                <button class="btn btn-primary btn-sm" onclick="addInventoryItem()" style="height:36px">추가</button>
-            </div>
-        </div>
-        <h3 style="font-size:0.95rem;margin-bottom:8px">품목 목록</h3>
-        <div class="cat-pills" id="invMgmtCatPills" style="margin-bottom:8px"></div>
-        <div class="search-bar" style="margin-bottom:12px">
-            <input type="text" id="invSearchInput" placeholder="품목 검색..." oninput="renderInvMgmt()">
-        </div>
-        <div id="invMgmtList"></div>
-    </div>
-</div>
 {% endif %}
 
 {# --- 설정 (직원관리, 편집 등) --- #}
@@ -116,8 +73,10 @@
 </div>
 
 <div class="card">
-    <div class="card-header"><span>체크리스트 항목 관리 (순서/수정/삭제)</span></div>
-    <div class="card-body" style="padding:12px">
+    <div class="card-header" onclick="toggleSection('checklistMgmt')">
+        <span>체크리스트 항목 관리</span><span class="collapse-arrow">&#9660;</span>
+    </div>
+    <div class="card-body collapsed" id="checklistMgmt" style="padding:12px">
         <div id="checklistMgmtContainer">
             <!-- 빠른 편집 UI는 추후 추가 -->
             <div style="color:var(--text-secondary)">체크리스트 항목 편집/정렬 UI는 곧 추가됩니다.</div>
@@ -126,7 +85,7 @@
 </div>
 
 <div class="card">
-    <div class="card-header"><span>재고 항목 관리 (편집/정렬)</span></div>
+    <div class="card-header"><span>재고 항목 관리</span></div>
     <div class="card-body" style="padding:12px">
         <div id="inventoryMgmtContainer"></div>
     </div>
