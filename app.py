@@ -87,15 +87,19 @@ def get_checklist(shift):
     items = ChecklistItem.query.filter_by(shift=shift, active=True)\
         .order_by(ChecklistItem.sort_order).all()
 
+    pr_map = _load_priorities()
     result = []
     for item in items:
         log = ChecklistLog.query.filter_by(item_id=item.id, date=target_date).first()
+        pid = str(item.id)
+        priority = pr_map.get(pid) if isinstance(pr_map, dict) else None
         result.append({
             'id': item.id,
             'name': item.name,
             'completed': log.completed if log else False,
             'completed_by': log.completed_by if log else None,
             'completed_at': log.completed_at.strftime('%H:%M') if log and log.completed_at else None,
+            'priority': priority,
         })
     return jsonify(result)
 
@@ -800,6 +804,23 @@ def init_db():
             order += 1
 
     db.session.commit()
+
+    # seed default priority categories file if missing
+    try:
+        cats = _load_priority_categories()
+    except Exception:
+        cats = []
+    if not cats:
+        default_cats = [
+            {'id': 1, 'name': '1 - Top', 'sort_order': 0},
+            {'id': 2, 'name': '2 - 주방 정리', 'sort_order': 1},
+            {'id': 3, 'name': '3 - 업장 청소', 'sort_order': 2},
+            {'id': 4, 'name': '4 - 재고 채우기', 'sort_order': 3},
+            {'id': 5, 'name': '5 - 전문 작업', 'sort_order': 4},
+        ]
+        _save_priority_categories(default_cats)
+        print("Default priority categories seeded.")
+
     print("Database initialized with seed data.")
 
 

@@ -145,7 +145,9 @@
       });
       root.querySelectorAll('.edit-item-btn').forEach(btn=>{
         btn.addEventListener('click', e=>{
-          const li = e.target.closest('li'); const id = parseInt(li.dataset.id); if (typeof openItemEdit === 'function') openItemEdit(id);
+          const li = e.target.closest('li'); const id = parseInt(li.dataset.id);
+          if (typeof openChecklistItemEdit === 'function') openChecklistItemEdit(id);
+          else if (typeof openItemEdit === 'function') openItemEdit(id);
         });
       });
       root.querySelectorAll('.del-item-btn').forEach(btn=>{
@@ -641,6 +643,69 @@
         if (found) catSelect.value = found.id;
       }
       modalEl.querySelector('#ms_itemEditThreshold').value = item.min_threshold ?? 2;
+      modalEl.classList.add('show');
+    };
+  }
+
+  // fallback openChecklistItemEdit for editing checklist items
+  if (typeof window.openChecklistItemEdit !== 'function') {
+    window.openChecklistItemEdit = async function(id){
+      // create modal if missing
+      if (!document.getElementById('ms_checklistItemEditModal')) {
+        const modal = document.createElement('div');
+        modal.id = 'ms_checklistItemEditModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+          <div class="modal">
+            <h2>체크리스트 항목 수정</h2>
+            <input type="hidden" id="ms_checklistItemEditId">
+            <div class="form-group"><label>항목명</label><input type="text" id="ms_checklistItemEditName"></div>
+            <div class="form-group"><label>쉬프트</label>
+              <select id="ms_checklistItemEditShift" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px">
+                <option value="day">day</option><option value="night">night</option>
+              </select>
+            </div>
+            <div class="modal-actions">
+              <button class="btn btn-outline" id="ms_checklistItemEditCancel">취소</button>
+              <button class="btn btn-primary" id="ms_checklistItemEditSave">저장</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        // handlers
+        modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+        modal.querySelector('#ms_checklistItemEditCancel').addEventListener('click', () => modal.classList.remove('show'));
+        modal.querySelector('#ms_checklistItemEditSave').addEventListener('click', async () => {
+          const mid = modal.querySelector('#ms_checklistItemEditId').value;
+          const name = modal.querySelector('#ms_checklistItemEditName').value.trim();
+          const shift = modal.querySelector('#ms_checklistItemEditShift').value;
+          if (!name) { showToast && showToast('이름을 입력하세요','error'); return; }
+          try {
+            await ajaxApi(`/api/checklist/item/${mid}`, { method:'PUT', body:{ name, shift }});
+            modal.classList.remove('show');
+            showToast && showToast('수정됨');
+            if (typeof loadChecklistMgmt === 'function') loadChecklistMgmt();
+            if (typeof renderChecklistLists === 'function') renderChecklistLists();
+          } catch (err) {
+            showToast && showToast('수정 실패','error');
+          }
+        });
+      }
+      const modalEl = document.getElementById('ms_checklistItemEditModal');
+      modalEl.querySelector('#ms_checklistItemEditId').value = id;
+      // attempt to find item name and shift by querying both shifts
+      const today = new Date().toISOString().split('T')[0];
+      let found = null;
+      try {
+        const day = await ajaxApi(`/api/checklist/day?date=${today}`) || [];
+        const night = await ajaxApi(`/api/checklist/night?date=${today}`) || [];
+        for (const it of day) { if (String(it.id) === String(id)) { found = { name: it.name, shift: 'day' }; break; } }
+        if (!found) {
+          for (const it of night) { if (String(it.id) === String(id)) { found = { name: it.name, shift: 'night' }; break; } }
+        }
+      } catch (err) { /* ignore */ }
+      modalEl.querySelector('#ms_checklistItemEditName').value = (found && found.name) ? found.name : '';
+      modalEl.querySelector('#ms_checklistItemEditShift').value = (found && found.shift) ? found.shift : 'day';
       modalEl.classList.add('show');
     };
   }
