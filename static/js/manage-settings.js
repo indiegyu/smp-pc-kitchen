@@ -30,9 +30,6 @@
     if(!container) return;
     container.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px">
-        <div style="display:flex;justify-content:flex-end;gap:8px;">
-          <button class="btn btn-outline btn-sm" id="toggleChecklistReorder">재정렬 모드</button>
-        </div>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           <div style="flex:1;min-width:300px">
             <h3 style="margin:0 0 8px 0">주간 체크리스트</h3>
@@ -65,12 +62,6 @@
       byId('newChecklistNight').value=''; showToast && showToast('추가됨'); await renderChecklistLists();
     });
 
-    // toggle handler for mobile reorder mode
-    byId('toggleChecklistReorder').addEventListener('click', function(){
-      const enabled = container.classList.toggle('reorder-mode');
-      toggleChecklistReorderUI(enabled);
-      this.classList.toggle('active', enabled);
-    });
 
     await renderChecklistLists();
     loadSortable(setupChecklistSortables);
@@ -234,7 +225,7 @@
     const data = await ajaxApi('/api/inventory') || [];
     const html = data.map(cat => `
       <div class="cat-card" data-id="${cat.id}" style="margin-bottom:10px;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--bg)">
-        <div style="display:flex;align-items:center;gap:8px">
+        <div class="cat-card-header" style="display:flex;align-items:center;gap:8px">
           <span class="cat-drag" style="cursor:grab">≡</span>
           <span class="cat-move-btns" style="display:none;flex-direction:column;gap:4px;margin-left:4px;">
             <button class="btn btn-sm cat-move-up" title="위로">▲</button>
@@ -268,9 +259,6 @@
     `).join('');
 
     container.innerHTML = `
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;">
-        <button class="btn btn-outline btn-sm" id="toggleInventoryReorder">재정렬 모드</button>
-      </div>
       <div id="inventoryCards">${html}</div>
     `;
 
@@ -318,12 +306,6 @@
       });
     });
 
-    // toggle handler for inventory reorder mode
-    byId('toggleInventoryReorder').addEventListener('click', function(){
-      const enabled = root.classList.toggle('reorder-mode');
-      toggleInventoryReorderUI(enabled);
-      this.classList.toggle('active', enabled);
-    });
 
     // delegated move handling for categories/items and other delegated actions
     root.addEventListener('click', async function(e){
@@ -340,7 +322,7 @@
       // category header toggle (click header area to collapse)
       const clickedCard = e.target.closest('.cat-card');
       if (clickedCard) {
-        const header = clickedCard.querySelector('div');
+        const header = clickedCard.querySelector('.cat-card-header');
         if (header && header.contains(e.target) && !e.target.closest('.cat-edit-btn') && !e.target.closest('.cat-del-btn') && !e.target.closest('.cat-drag') && !e.target.closest('.cat-move-btns')) {
           e.stopPropagation();
           clickedCard.classList.toggle('collapsed');
@@ -456,7 +438,6 @@
             <input type="hidden" id="ms_itemEditId">
             <div class="form-group"><label>품목명</label><input type="text" id="ms_itemEditName"></div>
             <div class="form-group"><label>카테고리</label><select id="ms_itemEditCat" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px"></select></div>
-            <div class="form-group"><label>위치</label><input type="text" id="ms_itemEditLocation" placeholder="선택사항"></div>
             <div class="form-group"><label>최소 수량 (부족 알림 기준)</label><input type="number" id="ms_itemEditThreshold" min="0" value="2" inputmode="numeric"></div>
             <div class="modal-actions">
               <button class="btn btn-outline" id="ms_itemEditCancel">취소</button>
@@ -472,11 +453,10 @@
           const mid = modal.querySelector('#ms_itemEditId').value;
           const name = modal.querySelector('#ms_itemEditName').value.trim();
           const catId = parseInt(modal.querySelector('#ms_itemEditCat').value);
-          const location = modal.querySelector('#ms_itemEditLocation').value.trim();
           const threshold = parseInt(modal.querySelector('#ms_itemEditThreshold').value) || 0;
           if (!name) { showToast && showToast('이름을 입력하세요','error'); return; }
           try {
-            await ajaxApi(`/api/inventory/${mid}`, { method:'PUT', body:{ name, category_id: catId, location, min_threshold: threshold }});
+            await ajaxApi(`/api/inventory/${mid}`, { method:'PUT', body:{ name, category_id: catId, min_threshold: threshold }});
             modal.classList.remove('show');
             showToast && showToast('수정됨');
             await loadInventoryMgmt();
@@ -506,7 +486,6 @@
         const found = cats.find(c => c.name === item.category);
         if (found) catSelect.value = found.id;
       }
-      modalEl.querySelector('#ms_itemEditLocation').value = item.location || '';
       modalEl.querySelector('#ms_itemEditThreshold').value = item.min_threshold ?? 2;
       modalEl.classList.add('show');
     };

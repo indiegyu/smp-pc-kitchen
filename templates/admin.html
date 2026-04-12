@@ -85,8 +85,10 @@
 </div>
 
 <div class="card">
-    <div class="card-header"><span>재고 항목 관리</span></div>
-    <div class="card-body" style="padding:12px">
+    <div class="card-header" onclick="toggleSection('inventoryMgmt')">
+        <span>재고 항목 관리</span><span class="collapse-arrow">&#9660;</span>
+    </div>
+    <div class="card-body collapsed" id="inventoryMgmt" style="padding:12px">
         <div id="inventoryMgmtContainer"></div>
     </div>
 </div>
@@ -122,10 +124,6 @@
         <div class="form-group">
             <label>카테고리</label>
             <select id="itemEditCat" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px"></select>
-        </div>
-        <div class="form-group">
-            <label>위치</label>
-            <input type="text" id="itemEditLocation" placeholder="선택사항">
         </div>
         <div class="form-group">
             <label>최소 수량 (부족 알림 기준)</label>
@@ -205,7 +203,7 @@ const start = new Date(new Date(end + 'T00:00:00').getTime() - 4 * 86400000).toI
         const dayPct = dayData.total ? Math.round(dayData.done/dayData.total*100) : 0;
         const nightPct = nightData.total ? Math.round(nightData.done/nightData.total*100) : 0;
         return `
-            <div class="summary-day-card ${d===end?'today':''}" onclick="selectSummaryDate('${d}')">
+            <div class="summary-day-card ${d===end?'today':''} ${d===selectedSummaryDate ? 'selected' : ''}" data-date="${d}" onclick="selectSummaryDate('${d}', this)">
                 <div class="sdc-date">${d.slice(5)} (${dayNames[dt.getDay()]})</div>
                 <div class="sdc-row"><span class="sdc-label">주간</span><div class="sdc-bar"><div class="sdc-fill ${dayPct===100?'full':''}" style="width:${dayPct}%"></div></div><span class="sdc-pct">${dayPct}%</span></div>
                 <div class="sdc-row"><span class="sdc-label">야간</span><div class="sdc-bar"><div class="sdc-fill ${nightPct===100?'full':''}" style="width:${nightPct}%"></div></div><span class="sdc-pct">${nightPct}%</span></div>
@@ -213,10 +211,19 @@ const start = new Date(new Date(end + 'T00:00:00').getTime() - 4 * 86400000).toI
     }).join('');
 }
 
-function selectSummaryDate(d){
+function selectSummaryDate(d, el){
     if (viewDate) viewDate.value = d;
     loadDetail(currentDetailShift);
-    loadSummary();
+    // update only selected card visually (do not re-render all)
+    const prev = document.querySelector('#summaryCards .summary-day-card.selected');
+    if (prev) prev.classList.remove('selected');
+    if (el && el.classList) {
+        el.classList.add('selected');
+    } else {
+        const newEl = document.querySelector(`#summaryCards .summary-day-card[data-date="${d}"]`);
+        if (newEl) newEl.classList.add('selected');
+    }
+    selectedSummaryDate = d;
 }
 
 /* Detail (checklist) */
@@ -359,7 +366,6 @@ async function openItemEdit(id) {
     if (!exists('itemEditModal')) return;
     byId('itemEditId').value = id;
     byId('itemEditName').value = item.name || '';
-    byId('itemEditLocation').value = item.location || '';
     // ensure categories are available
     if (!allCategories || allCategories.length === 0) {
         allCategories = await api('/api/inventory/categories') || [];
@@ -382,11 +388,10 @@ async function saveItemEdit() {
     const name = byId('itemEditName').value.trim();
     if (!name) return;
     const catId = parseInt(byId('itemEditCat').value);
-    const location = byId('itemEditLocation').value.trim();
     const threshold = parseInt(byId('itemEditThreshold').value) || 0;
     await api(`/api/inventory/${id}`, {
         method: 'PUT',
-        body: { name, category_id: catId, location, min_threshold: threshold }
+        body: { name, category_id: catId, min_threshold: threshold }
     });
     closeModal('itemEditModal');
     showToast('수정됨');

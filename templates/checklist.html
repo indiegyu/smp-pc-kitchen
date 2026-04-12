@@ -501,12 +501,14 @@ function toggleTopNote() {
     if (!contacts) {
         // fallback to previous behavior if contacts block is missing
         const collapsed = top.classList.toggle('collapsed');
+        top.classList.toggle('contacts-hidden', collapsed);
         btn.textContent = collapsed ? '열기' : '닫기';
         btn.setAttribute('aria-expanded', (!collapsed).toString());
         localStorage.setItem('topnote_collapsed', collapsed ? '1' : '0');
         return;
     }
     const hidden = contacts.classList.toggle('hidden');
+    top.classList.toggle('contacts-hidden', hidden);
     btn.textContent = hidden ? '열기' : '닫기';
     btn.setAttribute('aria-expanded', (!hidden).toString());
     localStorage.setItem('topnote_contacts_hidden', hidden ? '1' : '0');
@@ -637,6 +639,7 @@ loadStaff();
     if (top && btn && contactsHidden) {
         const contacts = top.querySelector('.top-note-contacts');
         if (contacts) contacts.classList.add('hidden');
+        top.classList.add('contacts-hidden');
         btn.textContent = '열기';
         btn.setAttribute('aria-expanded', 'false');
     }

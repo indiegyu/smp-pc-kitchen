@@ -867,6 +867,17 @@ input[type="date"]:focus { border-color: var(--primary); }
 }
 .top-note.collapsed .top-note-inner { padding-bottom: 6px; }
 .top-note.collapsed .top-note-list { display: none; }
+
+/* Toggle behavior:
+   - when contacts are hidden (.contacts-hidden) show the checklist list in bold
+   - when contacts are visible (no .contacts-hidden) hide the checklist list and show contacts (normal weight)
+*/
+.top-note-contacts.hidden { display: none; }
+.top-note.contacts-hidden .top-note-contacts { display: none; }
+.top-note:not(.contacts-hidden) .top-note-list { display: none; }
+.top-note.contacts-hidden .top-note-list { display: block; font-weight: 800; }
+.top-note:not(.contacts-hidden) .top-note-contacts { font-weight: 400; }
+
 .top-note-inner {
     background: linear-gradient(90deg, #fff1f2, #fff8f0);
     border-radius: 10px;

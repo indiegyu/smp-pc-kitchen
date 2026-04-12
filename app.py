@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from models import db, Staff, ChecklistItem, ChecklistLog, DailyNote, \
     InventoryCategory, InventoryItem, InventoryTransaction, ShortageItem, ShortageCount
 from datetime import datetime, date, timedelta
@@ -27,19 +27,20 @@ def inventory_page():
 
 @app.route('/manage')
 def manage_index():
-    return render_template('manage/index.html')
+    # redirect straight to the 운영 (checklist) view to remove the selection step
+    return redirect(url_for('manage_checklist'))
 
 @app.route('/manage/checklist')
 def manage_checklist():
-    return render_template('admin.html')
+    return render_template('admin.html', active='checklist')
 
 @app.route('/manage/inventory')
 def manage_inventory_page():
-    return render_template('admin.html')
+    return render_template('admin.html', active='inventory')
 
 @app.route('/manage/settings')
 def manage_settings():
-    return render_template('manage/settings.html')
+    return render_template('admin.html', active='settings')
 
 
 # ─── Staff API ───────────────────────────────────────────
