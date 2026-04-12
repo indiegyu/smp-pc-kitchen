@@ -8,23 +8,8 @@
     <h1>관리자 대시보드</h1>
 </div>
 
-<!-- Staff Management -->
-<div class="card">
-    <div class="card-header" onclick="toggleSection('staffSection')">
-        <span>직원 관리</span><span class="collapse-arrow">&#9660;</span>
-    </div>
-    <div class="card-body" id="staffSection" style="padding:16px">
-        <div id="staffList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px">
-            <input type="text" id="newStaffName" placeholder="새 직원 이름"
-                   onkeydown="if(event.key==='Enter')addStaff()"
-                   style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.95rem">
-            <button class="btn btn-primary btn-sm" onclick="addStaff()">추가</button>
-        </div>
-    </div>
-</div>
-
-<!-- Checklist Summary -->
+{# --- 체크리스트 관련 (운영) --- #}
+{% if active == 'checklist' or not active %}
 <div class="card">
     <div class="card-header"><span>체크리스트 완료 현황</span></div>
     <div class="card-body" style="padding:12px">
@@ -32,7 +17,6 @@
     </div>
 </div>
 
-<!-- Checklist Detail -->
 <div class="card">
     <div class="card-header">
         <span id="detailTitle">체크리스트 상세</span>
@@ -56,8 +40,10 @@
         </div>
     </div>
 </div>
+{% endif %}
 
-<!-- Low Stock -->
+{# --- 재고 관련 (인벤토리) --- #}
+{% if active == 'inventory' %}
 <div class="card">
     <div class="card-header">
         <span>재고 부족 현황</span><span class="badge badge-danger" id="lowStockBadge">0</span>
@@ -67,7 +53,6 @@
     </div>
 </div>
 
-<!-- Category Management -->
 <div class="card">
     <div class="card-header" onclick="toggleSection('catMgmt')">
         <span>카테고리 관리</span><span class="collapse-arrow">&#9660;</span>
@@ -83,7 +68,6 @@
     </div>
 </div>
 
-<!-- Inventory Item Management -->
 <div class="card">
     <div class="card-header" onclick="toggleSection('invMgmt')">
         <span>재고 품목 관리</span><span class="collapse-arrow">&#9660;</span>
@@ -106,7 +90,6 @@
             </div>
         </div>
         <h3 style="font-size:0.95rem;margin-bottom:8px">품목 목록</h3>
-        <!-- Category filter pills for item management -->
         <div class="cat-pills" id="invMgmtCatPills" style="margin-bottom:8px"></div>
         <div class="search-bar" style="margin-bottom:12px">
             <input type="text" id="invSearchInput" placeholder="품목 검색..." oninput="renderInvMgmt()">
@@ -114,7 +97,45 @@
         <div id="invMgmtList"></div>
     </div>
 </div>
+{% endif %}
 
+{# --- 설정 (직원관리, 편집 등) --- #}
+{% if active == 'settings' %}
+<div class="card">
+    <div class="card-header" onclick="toggleSection('staffSection')">
+        <span>직원 관리</span><span class="collapse-arrow">&#9660;</span>
+    </div>
+    <div class="card-body" id="staffSection" style="padding:16px">
+        <div id="staffList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px">
+            <input type="text" id="newStaffName" placeholder="새 직원 이름"
+                   onkeydown="if(event.key==='Enter')addStaff()"
+                   style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.95rem">
+            <button class="btn btn-primary btn-sm" onclick="addStaff()">추가</button>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><span>체크리스트 항목 관리 (순서/수정/삭제)</span></div>
+    <div class="card-body" style="padding:12px">
+        <div id="checklistMgmtContainer">
+            <!-- 빠른 편집 UI는 추후 추가 -->
+            <div style="color:var(--text-secondary)">체크리스트 항목 편집/정렬 UI는 곧 추가됩니다.</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><span>재고 항목 관리 (편집/정렬)</span></div>
+    <div class="card-body" style="padding:12px">
+        <div id="inventoryMgmtContainer"></div>
+    </div>
+</div>
+{% endif %}
+
+{# Modals used by inventory/settings (include when inventory or settings) #}
+{% if active in ['inventory','settings'] %}
 <!-- Category Edit Modal -->
 <div class="modal-overlay" id="catEditModal">
     <div class="modal">
@@ -158,28 +179,41 @@
         </div>
     </div>
 </div>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-const viewDate = document.getElementById('viewDate');
-viewDate.value = new Date().toISOString().split('T')[0];
+/* Safe element helpers */
+function byId(id){ return document.getElementById(id); }
+function exists(id){ return !!byId(id); }
+
+const viewDate = byId('viewDate');
+if (viewDate) viewDate.value = new Date().toISOString().split('T')[0];
 let currentDetailShift = 'day';
 let allItems = [];
 let allCategories = [];
-let selectedSummaryDate = viewDate.value;
-let invMgmtCatFilter = null; // null = all
+let selectedSummaryDate = viewDate ? viewDate.value : new Date().toISOString().split('T')[0];
+let invMgmtCatFilter = null;
 
 function toggleSection(id) {
-    const el = document.getElementById(id);
+    const el = byId(id);
+    if (!el) return;
     el.classList.toggle('collapsed');
-    el.previousElementSibling.querySelector('.collapse-arrow').classList.toggle('collapsed');
+    const header = el.previousElementSibling;
+    if (header) {
+        const arrow = header.querySelector('.collapse-arrow');
+        if (arrow) arrow.classList.toggle('collapsed');
+    }
 }
 
-// ── Staff ──
+/* Staff APIs */
 async function loadStaff() {
-    const staff = await api('/api/staff');
-    document.getElementById('staffList').innerHTML = staff.map(s =>
+    if (!exists('staffList')) return;
+    const staff = await api('/api/staff') || [];
+    const container = byId('staffList');
+    container.innerHTML = staff.map(s =>
         `<div style="display:flex;align-items:center;gap:4px;background:var(--primary-light);padding:6px 12px;border-radius:8px">
             <span style="font-weight:600">${s.name}</span>
             <button onclick="removeStaff(${s.id})" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:1.1rem">&times;</button>
@@ -187,32 +221,32 @@ async function loadStaff() {
     ).join('');
 }
 async function addStaff() {
-    const input = document.getElementById('newStaffName');
-    if (!input.value.trim()) return;
+    const input = byId('newStaffName');
+    if (!input || !input.value.trim()) return;
     await api('/api/staff', { method: 'POST', body: { name: input.value.trim() } });
     input.value = '';
+    showToast('직원 추가됨');
     loadStaff();
 }
 async function removeStaff(id) { await api(`/api/staff/${id}`, { method: 'DELETE' }); loadStaff(); }
 
-// ── Summary Cards ──
+/* Summary (checklist) */
 async function loadSummary() {
+    if (!exists('summaryCards')) return;
     const end = new Date().toISOString().split('T')[0];
-    const start = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
+    const start = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
     const data = await api(`/api/checklist/summary?start=${start}&end=${end}`);
     const byDate = {};
     data.forEach(r => { if (!byDate[r.date]) byDate[r.date] = {}; byDate[r.date][r.shift] = r; });
     const dayNames = ['일','월','화','수','목','금','토'];
-
-    document.getElementById('summaryCards').innerHTML = Object.entries(byDate).map(([d, shifts]) => {
+    document.getElementById('summaryCards').innerHTML = Object.keys(byDate).map(d => {
         const dt = new Date(d + 'T00:00:00');
-        const dayData = shifts.day || {done:0,total:0};
-        const nightData = shifts.night || {done:0,total:0};
+        const dayData = byDate[d].day || {done:0,total:0};
+        const nightData = byDate[d].night || {done:0,total:0};
         const dayPct = dayData.total ? Math.round(dayData.done/dayData.total*100) : 0;
         const nightPct = nightData.total ? Math.round(nightData.done/nightData.total*100) : 0;
-        const isSelected = d === selectedSummaryDate;
         return `
-            <div class="summary-day-card ${d===end?'today':''} ${isSelected?'selected':''}" onclick="selectSummaryDate('${d}')">
+            <div class="summary-day-card ${d===end?'today':''}" onclick="selectSummaryDate('${d}')">
                 <div class="sdc-date">${d.slice(5)} (${dayNames[dt.getDay()]})</div>
                 <div class="sdc-row"><span class="sdc-label">주간</span><div class="sdc-bar"><div class="sdc-fill ${dayPct===100?'full':''}" style="width:${dayPct}%"></div></div><span class="sdc-pct">${dayPct}%</span></div>
                 <div class="sdc-row"><span class="sdc-label">야간</span><div class="sdc-bar"><div class="sdc-fill ${nightPct===100?'full':''}" style="width:${nightPct}%"></div></div><span class="sdc-pct">${nightPct}%</span></div>
@@ -220,22 +254,22 @@ async function loadSummary() {
     }).join('');
 }
 
-function selectSummaryDate(d) {
-    selectedSummaryDate = d;
-    viewDate.value = d;
+function selectSummaryDate(d){
+    if (viewDate) viewDate.value = d;
     loadDetail(currentDetailShift);
     loadSummary();
 }
 
-// ── Detail ──
+/* Detail (checklist) */
 async function loadDetail(shift) {
+    if (!exists('detailList')) return;
     currentDetailShift = shift;
-    document.getElementById('detailDayBtn').style.background = shift === 'day' ? 'var(--primary-light)' : '';
-    document.getElementById('detailNightBtn').style.background = shift === 'night' ? 'var(--primary-light)' : '';
-    document.getElementById('detailTitle').textContent = `${viewDate.value} ${shift === 'day' ? '주간' : '야간'} 체크리스트`;
+    if (byId('detailDayBtn')) byId('detailDayBtn').style.background = shift === 'day' ? 'var(--primary-light)' : '';
+    if (byId('detailNightBtn')) byId('detailNightBtn').style.background = shift === 'night' ? 'var(--primary-light)' : '';
+    if (byId('detailTitle') && viewDate) byId('detailTitle').textContent = `${viewDate.value} ${shift === 'day' ? '주간' : '야간'} 체크리스트`;
 
-    const items = await api(`/api/checklist/${shift}?date=${viewDate.value}`);
-    document.getElementById('detailList').innerHTML = items.map(item => `
+    const items = await api(`/api/checklist/${shift}?date=${viewDate ? viewDate.value : new Date().toISOString().split('T')[0]}`);
+    byId('detailList').innerHTML = items.map(item => `
         <div class="cl-item ${item.completed ? 'checked' : ''}" style="cursor:default">
             <div class="cl-check"></div>
             <div class="cl-name">${item.name}</div>
@@ -244,28 +278,23 @@ async function loadDetail(shift) {
     `).join('');
 
     const [purchase, handoff] = await Promise.all([
-        api(`/api/notes/${shift}/purchase?date=${viewDate.value}`),
-        api(`/api/notes/${shift}/handoff?date=${viewDate.value}`),
+        api(`/api/notes/${shift}/purchase?date=${viewDate ? viewDate.value : new Date().toISOString().split('T')[0]}`),
+        api(`/api/notes/${shift}/handoff?date=${viewDate ? viewDate.value : new Date().toISOString().split('T')[0]}`),
     ]);
-    document.getElementById('adminPurchaseNote').textContent = purchase.content || '-';
-    document.getElementById('adminHandoffNote').textContent = handoff.content || '-';
+    if (byId('adminPurchaseNote')) byId('adminPurchaseNote').textContent = purchase.content || '-';
+    if (byId('adminHandoffNote')) byId('adminHandoffNote').textContent = handoff.content || '-';
 }
 
-viewDate.addEventListener('change', () => {
-    selectedSummaryDate = viewDate.value;
-    loadDetail(currentDetailShift);
-    loadSummary();
-});
-
-// ── Low Stock ──
+/* Inventory helpers (only used when inventory view active) */
 async function loadLowStock() {
+    if (!exists('lowStockBody')) return;
     const items = await api('/api/inventory/low-stock');
-    document.getElementById('lowStockBadge').textContent = items.length;
+    byId('lowStockBadge').textContent = items.length;
     if (items.length === 0) {
-        document.getElementById('lowStockBody').innerHTML = '<div style="padding:16px;color:var(--text-secondary)">부족한 재고가 없습니다</div>';
+        byId('lowStockBody').innerHTML = '<div style="padding:16px;color:var(--text-secondary)">부족한 재고가 없습니다</div>';
         return;
     }
-    document.getElementById('lowStockBody').innerHTML = `
+    byId('lowStockBody').innerHTML = `
         <table class="summary-table">
             <thead><tr><th>카테고리</th><th>품목</th><th>현재</th><th>최소</th></tr></thead>
             <tbody>${items.map(i => `
@@ -274,12 +303,12 @@ async function loadLowStock() {
         </table>`;
 }
 
-// ── Category Management ──
 async function loadCategories() {
+    if (!exists('addItemCat') && !exists('catList') && !exists('itemEditCat') && !exists('invMgmtCatPills')) return;
     allCategories = await api('/api/inventory/categories');
-    document.getElementById('addItemCat').innerHTML = allCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-    document.getElementById('itemEditCat').innerHTML = allCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-    document.getElementById('catList').innerHTML = allCategories.map(c => `
+    if (exists('addItemCat')) byId('addItemCat').innerHTML = allCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    if (exists('itemEditCat')) byId('itemEditCat').innerHTML = allCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    if (exists('catList')) byId('catList').innerHTML = allCategories.map(c => `
         <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
             <span style="flex:1;font-weight:500">${c.name}</span>
             <button class="btn btn-outline btn-sm" onclick="openCatEdit(${c.id},'${c.name.replace(/'/g,"\\'")}')">이름변경</button>
@@ -290,48 +319,17 @@ async function loadCategories() {
 }
 
 async function addCategory() {
-    const input = document.getElementById('newCatName');
-    if (!input.value.trim()) return;
+    const input = byId('newCatName');
+    if (!input || !input.value.trim()) return;
     await api('/api/inventory/categories', { method: 'POST', body: { name: input.value.trim() } });
     input.value = '';
     showToast('카테고리 추가됨');
     loadCategories();
 }
 
-function openCatEdit(id, name) {
-    document.getElementById('catEditId').value = id;
-    document.getElementById('catEditName').value = name;
-    document.getElementById('catEditModal').classList.add('show');
-    setTimeout(() => document.getElementById('catEditName').focus(), 100);
-}
-
-async function saveCategoryEdit() {
-    const id = document.getElementById('catEditId').value;
-    const name = document.getElementById('catEditName').value.trim();
-    if (!name) return;
-    await api(`/api/inventory/categories/${id}`, { method: 'PUT', body: { name } });
-    closeModal('catEditModal');
-    showToast('수정됨');
-    loadCategories();
-    loadAllItems();
-}
-
-async function deleteCategory(id, name) {
-    if (!confirm(`"${name}" 카테고리와 소속 품목을 모두 삭제하시겠습니까?`)) return;
-    await api(`/api/inventory/categories/${id}`, { method: 'DELETE' });
-    showToast('삭제됨');
-    loadCategories();
-    loadAllItems();
-}
-
-// ── Item Management ──
-async function loadAllItems() {
-    allItems = await api('/api/inventory/all-items');
-    renderInvMgmt();
-}
-
 function renderInvMgmtCatPills() {
-    const container = document.getElementById('invMgmtCatPills');
+    if (!exists('invMgmtCatPills')) return;
+    const container = byId('invMgmtCatPills');
     container.innerHTML =
         `<button class="cat-pill ${invMgmtCatFilter === null ? 'active' : ''}" onclick="setInvMgmtCat(null)">전체</button>` +
         allCategories.map(c =>
@@ -345,16 +343,22 @@ function setInvMgmtCat(catId) {
     renderInvMgmt();
 }
 
+async function loadAllItems() {
+    if (!exists('invMgmtList')) return;
+    allItems = await api('/api/inventory/all-items');
+    renderInvMgmt();
+}
+
 function renderInvMgmt() {
-    const search = document.getElementById('invSearchInput').value.toLowerCase();
+    if (!exists('invMgmtList')) return;
+    const search = byId('invSearchInput').value.toLowerCase();
     let filtered = allItems;
     if (invMgmtCatFilter !== null) {
         const catName = allCategories.find(c => c.id === invMgmtCatFilter)?.name;
         if (catName) filtered = filtered.filter(i => i.category === catName);
     }
     if (search) filtered = filtered.filter(i => i.name.toLowerCase().includes(search));
-
-    document.getElementById('invMgmtList').innerHTML = filtered.length === 0
+    byId('invMgmtList').innerHTML = filtered.length === 0
         ? '<div style="color:var(--text-secondary);padding:8px">검색 결과 없음</div>'
         : `<div style="border:1px solid var(--border);border-radius:8px;max-height:500px;overflow-y:auto">
             ${filtered.map(item => `
@@ -368,8 +372,9 @@ function renderInvMgmt() {
 }
 
 async function addInventoryItem() {
-    const catId = document.getElementById('addItemCat').value;
-    const nameInput = document.getElementById('addItemName');
+    if (!exists('addItemCat')) return;
+    const catId = byId('addItemCat').value;
+    const nameInput = byId('addItemName');
     if (!nameInput.value.trim()) return;
     await api('/api/inventory/item', { method: 'POST', body: { category_id: parseInt(catId), name: nameInput.value.trim() } });
     nameInput.value = '';
@@ -380,27 +385,26 @@ async function addInventoryItem() {
 function openItemEdit(id) {
     const item = allItems.find(i => i.id === id);
     if (!item) return;
-    document.getElementById('itemEditId').value = id;
-    document.getElementById('itemEditName').value = item.name;
-    document.getElementById('itemEditLocation').value = item.location || '';
-    // Find category id by name
+    if (!exists('itemEditModal')) return;
+    byId('itemEditId').value = id;
+    byId('itemEditName').value = item.name;
+    byId('itemEditLocation').value = item.location || '';
     const cat = allCategories.find(c => c.name === item.category);
-    if (cat) document.getElementById('itemEditCat').value = cat.id;
-    // Load current threshold via API
+    if (cat) byId('itemEditCat').value = cat.id;
     api(`/api/inventory/item-detail/${id}`).then(data => {
-        document.getElementById('itemEditThreshold').value = data.min_threshold ?? 2;
+        byId('itemEditThreshold').value = data.min_threshold ?? 2;
     });
-    document.getElementById('itemEditModal').classList.add('show');
-    setTimeout(() => document.getElementById('itemEditName').focus(), 100);
+    byId('itemEditModal').classList.add('show');
 }
 
 async function saveItemEdit() {
-    const id = document.getElementById('itemEditId').value;
-    const name = document.getElementById('itemEditName').value.trim();
+    if (!exists('itemEditId')) return;
+    const id = byId('itemEditId').value;
+    const name = byId('itemEditName').value.trim();
     if (!name) return;
-    const catId = parseInt(document.getElementById('itemEditCat').value);
-    const location = document.getElementById('itemEditLocation').value.trim();
-    const threshold = parseInt(document.getElementById('itemEditThreshold').value) || 0;
+    const catId = parseInt(byId('itemEditCat').value);
+    const location = byId('itemEditLocation').value.trim();
+    const threshold = parseInt(byId('itemEditThreshold').value) || 0;
     await api(`/api/inventory/${id}`, {
         method: 'PUT',
         body: { name, category_id: catId, location, min_threshold: threshold }
@@ -418,17 +422,55 @@ async function deleteItem(id, name) {
     loadAllItems();
 }
 
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+/* Category edit/save/delete used by inventory/settings */
+function openCatEdit(id, name) {
+    if (!exists('catEditModal')) return;
+    byId('catEditId').value = id;
+    byId('catEditName').value = name;
+    byId('catEditModal').classList.add('show');
+    setTimeout(() => byId('catEditName').focus(), 100);
+}
+async function saveCategoryEdit() {
+    if (!exists('catEditId')) return;
+    const id = byId('catEditId').value;
+    const name = byId('catEditName').value.trim();
+    if (!name) return;
+    await api(`/api/inventory/categories/${id}`, { method: 'PUT', body: { name } });
+    closeModal('catEditModal');
+    showToast('수정됨');
+    loadCategories();
+    loadAllItems();
+}
+async function deleteCategory(id, name) {
+    if (!confirm(`"${name}" 카테고리와 소속 품목을 모두 삭제하시겠습니까?`)) return;
+    await api(`/api/inventory/categories/${id}`, { method: 'DELETE' });
+    showToast('삭제됨');
+    loadCategories();
+    loadAllItems();
+}
+
+/* Generic modal close helper */
+function closeModal(id) { const el = byId(id); if (el) el.classList.remove('show'); }
 document.querySelectorAll('.modal-overlay').forEach(el => {
     el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
 });
 
-// ── Init ──
-loadStaff();
-loadSummary();
-loadDetail('day');
-loadLowStock();
-loadCategories();
-loadAllItems();
+/* Init based on active view (only call functions needed by that view) */
+(function initAdmin() {
+    const adminActive = "{{ active or 'checklist' }}";
+    if (adminActive === 'checklist') {
+        loadSummary();
+        loadDetail('day');
+    } else if (adminActive === 'inventory') {
+        loadLowStock();
+        loadCategories();
+        loadAllItems();
+    } else if (adminActive === 'settings') {
+        loadStaff();
+        loadCategories();
+        loadAllItems();
+    }
+})();
 </script>
+<script src="/static/js/manage-settings.js"></script>
 {% endblock %}
