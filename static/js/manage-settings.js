@@ -442,4 +442,74 @@
     if(byId('inventoryMgmtContainer')) loadInventoryMgmt();
   });
 
+  // fallback openItemEdit for pages that don't expose admin openItemEdit
+  if (typeof window.openItemEdit !== 'function') {
+    window.openItemEdit = async function(id){
+      // create modal if missing
+      if (!document.getElementById('ms_itemEditModal')) {
+        const modal = document.createElement('div');
+        modal.id = 'ms_itemEditModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+          <div class="modal">
+            <h2>품목 수정</h2>
+            <input type="hidden" id="ms_itemEditId">
+            <div class="form-group"><label>품목명</label><input type="text" id="ms_itemEditName"></div>
+            <div class="form-group"><label>카테고리</label><select id="ms_itemEditCat" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px"></select></div>
+            <div class="form-group"><label>위치</label><input type="text" id="ms_itemEditLocation" placeholder="선택사항"></div>
+            <div class="form-group"><label>최소 수량 (부족 알림 기준)</label><input type="number" id="ms_itemEditThreshold" min="0" value="2" inputmode="numeric"></div>
+            <div class="modal-actions">
+              <button class="btn btn-outline" id="ms_itemEditCancel">취소</button>
+              <button class="btn btn-primary" id="ms_itemEditSave">저장</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        // handlers
+        modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+        modal.querySelector('#ms_itemEditCancel').addEventListener('click', () => modal.classList.remove('show'));
+        modal.querySelector('#ms_itemEditSave').addEventListener('click', async () => {
+          const mid = modal.querySelector('#ms_itemEditId').value;
+          const name = modal.querySelector('#ms_itemEditName').value.trim();
+          const catId = parseInt(modal.querySelector('#ms_itemEditCat').value);
+          const location = modal.querySelector('#ms_itemEditLocation').value.trim();
+          const threshold = parseInt(modal.querySelector('#ms_itemEditThreshold').value) || 0;
+          if (!name) { showToast && showToast('이름을 입력하세요','error'); return; }
+          try {
+            await ajaxApi(`/api/inventory/${mid}`, { method:'PUT', body:{ name, category_id: catId, location, min_threshold: threshold }});
+            modal.classList.remove('show');
+            showToast && showToast('수정됨');
+            await loadInventoryMgmt();
+          } catch (err) {
+            showToast && showToast('수정 실패','error');
+          }
+        });
+      }
+      const modalEl = document.getElementById('ms_itemEditModal');
+      const idEl = modalEl.querySelector('#ms_itemEditId');
+      idEl.value = id;
+      // load categories
+      const cats = await ajaxApi('/api/inventory/categories') || [];
+      const catSelect = modalEl.querySelector('#ms_itemEditCat');
+      catSelect.innerHTML = cats.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+      // fetch item detail
+      let item = null;
+      try {
+        item = await ajaxApi(`/api/inventory/item-detail/${id}`);
+      } catch (err) {
+        const all = await ajaxApi('/api/inventory/all-items') || [];
+        item = all.find(a => a.id == id) || { name:'', category_id: (cats[0] && cats[0].id) || '', location:'', min_threshold:2 };
+      }
+      modalEl.querySelector('#ms_itemEditName').value = item.name || '';
+      if (item.category_id) catSelect.value = item.category_id;
+      else if (item.category) {
+        const found = cats.find(c => c.name === item.category);
+        if (found) catSelect.value = found.id;
+      }
+      modalEl.querySelector('#ms_itemEditLocation').value = item.location || '';
+      modalEl.querySelector('#ms_itemEditThreshold').value = item.min_threshold ?? 2;
+      modalEl.classList.add('show');
+    };
+  }
+
 })();

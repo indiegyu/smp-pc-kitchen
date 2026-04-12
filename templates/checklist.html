@@ -497,10 +497,19 @@ function toggleTopNote() {
     const top = document.getElementById('topNote');
     const btn = document.getElementById('topNoteToggle');
     if (!top || !btn) return;
-    const collapsed = top.classList.toggle('collapsed');
-    btn.textContent = collapsed ? '열기' : '닫기';
-    btn.setAttribute('aria-expanded', (!collapsed).toString());
-    localStorage.setItem('topnote_collapsed', collapsed ? '1' : '0');
+    const contacts = top.querySelector('.top-note-contacts');
+    if (!contacts) {
+        // fallback to previous behavior if contacts block is missing
+        const collapsed = top.classList.toggle('collapsed');
+        btn.textContent = collapsed ? '열기' : '닫기';
+        btn.setAttribute('aria-expanded', (!collapsed).toString());
+        localStorage.setItem('topnote_collapsed', collapsed ? '1' : '0');
+        return;
+    }
+    const hidden = contacts.classList.toggle('hidden');
+    btn.textContent = hidden ? '열기' : '닫기';
+    btn.setAttribute('aria-expanded', (!hidden).toString());
+    localStorage.setItem('topnote_contacts_hidden', hidden ? '1' : '0');
 }
 
 async function toggleItemById(id) {
@@ -551,17 +560,27 @@ async function loadSummaryStrip() {
         const dt = parseYMD(d);
         const dayName = dayNames[dt.getDay()];
         const selected = d === selectedDate;
-        return `<div class="strip-day ${selected ? 'selected' : ''} ${d === end ? 'today' : ''}" onclick="selectDate('${d}')">
+        return `<div class="strip-day ${selected ? 'selected' : ''} ${d === end ? 'today' : ''}" data-date="${d}" onclick="selectDate('${d}', this)">
             <div class="strip-label">${d.slice(5)} ${dayName}</div>
         </div>`;
     }).join('');
 }
 
-function selectDate(d) {
+function selectDate(d, el) {
     dateInput.value = d;
     loadChecklist();
     loadNotes();
-    loadSummaryStrip();
+    // update only the selected card visually
+    const strip = document.getElementById('summaryStrip');
+    if (!strip) return;
+    const prev = strip.querySelector('.strip-day.selected');
+    if (prev) prev.classList.remove('selected');
+    if (el && el.classList) {
+        el.classList.add('selected');
+    } else {
+        const newEl = strip.querySelector(`.strip-day[data-date="${d}"]`);
+        if (newEl) newEl.classList.add('selected');
+    }
 }
 
 // Notes auto-save
@@ -612,11 +631,12 @@ loadStaff();
 
 // restore UI prefs (top-note + priority collapsed state)
 (function restoreUI() {
-    const topCollapsed = localStorage.getItem('topnote_collapsed') === '1';
+    const contactsHidden = localStorage.getItem('topnote_contacts_hidden') === '1';
     const top = document.getElementById('topNote');
     const btn = document.getElementById('topNoteToggle');
-    if (top && btn && topCollapsed) {
-        top.classList.add('collapsed');
+    if (top && btn && contactsHidden) {
+        const contacts = top.querySelector('.top-note-contacts');
+        if (contacts) contacts.classList.add('hidden');
         btn.textContent = '열기';
         btn.setAttribute('aria-expanded', 'false');
     }

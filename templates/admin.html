@@ -341,18 +341,38 @@ async function addInventoryItem() {
     loadAllItems();
 }
 
-function openItemEdit(id) {
-    const item = allItems.find(i => i.id === id);
-    if (!item) return;
+async function openItemEdit(id) {
+    // try to find in cache, otherwise fetch detail
+    let item = (allItems || []).find(i => i.id === id);
+    if (!item) {
+        try {
+            item = await api(`/api/inventory/item-detail/${id}`);
+            if (!item) {
+                const all = await api('/api/inventory/all-items') || [];
+                item = all.find(a => a.id == id) || { id, name:'', category:'', location:'', min_threshold:2 };
+            }
+        } catch (err) {
+            const all = await api('/api/inventory/all-items') || [];
+            item = all.find(a => a.id == id) || { id, name:'', category:'', location:'', min_threshold:2 };
+        }
+    }
     if (!exists('itemEditModal')) return;
     byId('itemEditId').value = id;
-    byId('itemEditName').value = item.name;
+    byId('itemEditName').value = item.name || '';
     byId('itemEditLocation').value = item.location || '';
-    const cat = allCategories.find(c => c.name === item.category);
+    // ensure categories are available
+    if (!allCategories || allCategories.length === 0) {
+        allCategories = await api('/api/inventory/categories') || [];
+    }
+    if (exists('itemEditCat')) byId('itemEditCat').innerHTML = allCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    const cat = allCategories.find(c => c.name === item.category) || allCategories.find(c => c.id == item.category_id);
     if (cat) byId('itemEditCat').value = cat.id;
-    api(`/api/inventory/item-detail/${id}`).then(data => {
-        byId('itemEditThreshold').value = data.min_threshold ?? 2;
-    });
+    try {
+        const data = await api(`/api/inventory/item-detail/${id}`);
+        byId('itemEditThreshold').value = data.min_threshold ?? (item.min_threshold ?? 2);
+    } catch (err) {
+        byId('itemEditThreshold').value = item.min_threshold ?? 2;
+    }
     byId('itemEditModal').classList.add('show');
 }
 
