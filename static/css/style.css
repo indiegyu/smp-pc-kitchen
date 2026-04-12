@@ -870,27 +870,31 @@ input[type="date"]:focus { border-color: var(--primary); }
 
 /* ─── Summary Strip (checklist page) ──────────────── */
 .summary-strip {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    display: flex;
     gap: 6px;
     margin-bottom: 12px;
 }
 
 @media (max-width: 700px) {
-    .summary-strip { grid-template-columns: repeat(4, 1fr); }
+    .summary-strip { gap: 6px; }
 }
 
 @media (max-width: 450px) {
-    .summary-strip { grid-template-columns: repeat(3, 1fr); }
+    .summary-strip { gap: 6px; flex-direction: column; }
 }
 
 .strip-day {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 6px 10px;
+    padding: 8px 10px;
     cursor: pointer;
     transition: all 0.15s;
+    text-align: center;
 }
 
 .strip-day.today { border-color: var(--primary); }
@@ -903,33 +907,14 @@ input[type="date"]:focus { border-color: var(--primary); }
 }
 
 .strip-label {
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--text);
-    margin-bottom: 4px;
+    margin: 0;
 }
 
-.strip-bar {
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-    margin-bottom: 2px;
-}
-
-.strip-fill {
-    height: 100%;
-    background: var(--primary);
-    border-radius: 2px;
-}
-
-.strip-fill.full { background: var(--success); }
-
-.strip-pct {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-    font-weight: 600;
-}
+/* legacy percentage bars hidden */
+.strip-bar, .strip-fill, .strip-pct { display: none; }
 
 /* ─── Scroll FAB ──────────────────────────────────── */
 .scroll-fab {
