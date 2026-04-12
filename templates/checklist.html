@@ -111,7 +111,7 @@
 let currentShift = 'day';
 let items = [];
 let noteTimers = {};
-let modalSelectedShift = 'day';
+let modalSelectedShift = null;
 let entryResolve = null;
 const ENTRY_RESET_HOUR = 4; // 04:00 기준으로 날짜 리셋
 
@@ -190,12 +190,12 @@ async function showEntryModal() {
   if (!modal) return Promise.resolve();
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden','false');
-  const storedShift = localStorage.getItem('smp_shift') || 'day';
-  // highlight stored shift but stay on shift selection step
+  // start with no pre-selection so both buttons are white until user clicks
   document.querySelectorAll('.entry-shift-btn').forEach(b => {
-    const s = b.getAttribute('data-shift');
-    if (s === storedShift) { b.classList.add('selected'); b.setAttribute('data-selected','true'); } else { b.classList.remove('selected'); b.setAttribute('data-selected','false'); }
+    b.classList.remove('selected');
+    b.setAttribute('data-selected','false');
   });
+  modalSelectedShift = null;
   showShiftStep();
   return new Promise(resolve => { entryResolve = resolve; });
 }
@@ -204,24 +204,32 @@ function showShiftStep() {
   const left = document.querySelector('.entry-left');
   const right = document.getElementById('entryRight');
   const inner = document.querySelector('.entry-modal-inner');
+  const closeBtn = document.querySelector('.entry-close');
   if (left) left.style.display = '';
   if (right) { right.style.display = 'none'; right.style.width = '60%'; }
   if (inner) inner.style.flexDirection = '';
+  // hide the top-right close while on shift selection step
+  if (closeBtn) closeBtn.style.display = 'none';
 }
 
 function showStaffStep() {
   const left = document.querySelector('.entry-left');
   const right = document.getElementById('entryRight');
   const inner = document.querySelector('.entry-modal-inner');
+  const closeBtn = document.querySelector('.entry-close');
   if (left) left.style.display = 'none';
   if (right) { right.style.display = ''; right.style.width = '100%'; }
   if (inner) inner.style.flexDirection = 'row';
+  // show close button on staff selection step
+  if (closeBtn) closeBtn.style.display = '';
   renderStaffList(modalSelectedShift);
 }
 
 function hideTopStaffBar() {
   const sb = document.querySelector('.staff-bar');
   if (sb) sb.style.display = 'none';
+  const st = document.querySelector('.shift-tabs');
+  if (st) st.style.display = 'none';
 }
 
 function hideEntryModal() {
@@ -249,19 +257,55 @@ async function renderStaffList(shift) {
     if ((!visible || visible.length === 0) && Array.isArray(staff) && staff.length) {
       visible = staff.map(s => ({ ...s, name: (s && s.name && s.name.trim()) ? s.name : `직원 ${s.id}` }));
     }
+    list.innerHTML = '';
     if (!visible || visible.length === 0) {
       list.innerHTML = '<div class="entry-empty">직원 목록이 없습니다.</div>';
-      return;
+    } else {
+      visible.forEach(s => {
+        const el = document.createElement('div');
+        el.className = 'entry-staff';
+        el.dataset.id = s.id;
+        el.textContent = s.name;
+        el.addEventListener('click', () => confirmStaff(s));
+        list.appendChild(el);
+      });
     }
-    list.innerHTML = '';
-    visible.forEach(s => {
-      const el = document.createElement('div');
-      el.className = 'entry-staff';
-      el.dataset.id = s.id;
-      el.textContent = s.name;
-      el.addEventListener('click', () => confirmStaff(s));
-      list.appendChild(el);
+
+    // direct input for adding new staff
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'newStaffInput';
+    input.placeholder = '직접입력';
+    input.className = 'entry-staff';
+    input.style.fontWeight = '500';
+    input.style.borderRadius = '8px';
+    input.style.padding = '10px 12px';
+    input.style.marginTop = '8px';
+    input.style.background = 'var(--surface)';
+    input.style.border = '1px solid var(--border)';
+    input.addEventListener('focus', () => { input.placeholder = ''; });
+    input.addEventListener('blur', () => { if (!input.value) input.placeholder = '직접입력'; });
+    input.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        const name = e.target.value.trim();
+        if (!name) return;
+        e.target.disabled = true;
+        try {
+          const res = await api('/api/staff', { method: 'POST', body: { name }});
+          if (res && res.ok) {
+            // auto-confirm the new staff and proceed
+            confirmStaff({ id: res.id, name });
+          } else {
+            showToast(res && res.error ? res.error : '추가 실패', 'error');
+          }
+        } catch (err) {
+          showToast('서버 오류', 'error');
+        } finally {
+          e.target.disabled = false;
+        }
+      }
     });
+    list.appendChild(input);
   } catch (err) {
     list.innerHTML = '<div class="entry-empty">직원 목록을 불러오지 못했습니다.</div>';
   }
@@ -363,7 +407,8 @@ function render() {
         const list = items.filter(i => (i.night_group || mapNightGroup(i.name)) === key);
         const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
         html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
-        html += `<div class="priority-header"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><button class="btn btn-outline btn-sm priority-toggle" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></button></div></div>`;
+        html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
         html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
         if (!list.length) {
             html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
@@ -418,14 +463,15 @@ function render() {
     container.innerHTML = html;
 }
 
-function togglePriorityBox(key, btn) {
+function togglePriorityBox(key, el) {
     const box = document.querySelector('.priority-box[data-key="'+key+'"]');
     if (!box) return;
     const body = box.querySelector('.priority-body');
-    const arrow = btn && btn.querySelector('.collapse-arrow');
+    const header = el || box.querySelector('.priority-header');
+    const arrow = box.querySelector('.collapse-arrow');
     const collapsed = body.classList.toggle('collapsed');
     if (arrow) arrow.classList.toggle('collapsed', collapsed);
-    btn.setAttribute('aria-expanded', (!collapsed).toString());
+    if (header && header.setAttribute) header.setAttribute('aria-expanded', (!collapsed).toString());
     localStorage.setItem('prio_collapsed_' + key, collapsed ? '1' : '0');
 }
 
@@ -459,22 +505,28 @@ async function toggleItemById(id) {
 // Summary strip
 async function loadSummaryStrip() {
     const end = new Date().toISOString().split('T')[0];
-    const start = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
+    const startDateObj = new Date();
+    startDateObj.setDate(startDateObj.getDate() - 2); // show 3 days: today and 2 days prior
+    const start = startDateObj.toISOString().split('T')[0];
     const data = await api(`/api/checklist/summary?start=${start}&end=${end}`);
     const byDate = {};
     data.forEach(r => { if (!byDate[r.date]) byDate[r.date] = {}; byDate[r.date][r.shift] = r; });
     const dayNames = ['일','월','화','수','목','금','토'];
 
-    document.getElementById('summaryStrip').innerHTML = Object.entries(byDate).map(([d, shifts]) => {
+    const dates = [];
+    let curr = new Date(start + 'T00:00:00');
+    const endDt = new Date(end + 'T00:00:00');
+    while (curr <= endDt) {
+        dates.push(curr.toISOString().split('T')[0]);
+        curr.setDate(curr.getDate() + 1);
+    }
+
+    document.getElementById('summaryStrip').innerHTML = dates.map(d => {
         const dt = new Date(d + 'T00:00:00');
         const dayName = dayNames[dt.getDay()];
-        const s = shifts[currentShift] || { done: 0, total: 0 };
-        const pct = s.total ? Math.round(s.done / s.total * 100) : 0;
         const selected = d === dateInput.value;
         return `<div class="strip-day ${selected ? 'selected' : ''} ${d === end ? 'today' : ''}" onclick="selectDate('${d}')">
             <div class="strip-label">${d.slice(5)} ${dayName}</div>
-            <div class="strip-bar"><div class="strip-fill ${pct===100?'full':''}" style="width:${pct}%"></div></div>
-            <div class="strip-pct">${pct}%</div>
         </div>`;
     }).join('');
 }
@@ -548,11 +600,11 @@ loadStaff();
             const box = document.querySelector('.priority-box[data-key="'+k+'"]');
             if (!box) return;
             const body = box.querySelector('.priority-body');
-            const btn = box.querySelector('.priority-toggle');
-            const arrow = btn && btn.querySelector('.collapse-arrow');
+            const header = box.querySelector('.priority-header');
+            const arrow = box.querySelector('.collapse-arrow');
             if (body) body.classList.toggle('collapsed', collapsed);
             if (arrow) arrow.classList.toggle('collapsed', collapsed);
-            if (btn) btn.setAttribute('aria-expanded', (!collapsed).toString());
+            if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
         });
     }, 80);
 })();
