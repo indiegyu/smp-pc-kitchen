@@ -206,6 +206,10 @@ async function loadSummary() {
         dates.push(curr.toISOString().split('T')[0]);
         curr.setDate(curr.getDate() + 1);
     }
+    // ensure selectedSummaryDate is within the 5-day window; default to today (end) if not
+    if (!selectedSummaryDate || !dates.includes(selectedSummaryDate)) {
+        selectedSummaryDate = end;
+    }
     document.getElementById('summaryCards').innerHTML = dates.map(d => {
         const dt = new Date(d + 'T00:00:00');
         const dayData = (byDate[d] && byDate[d].day) || {done:0,total:0};
