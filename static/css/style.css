@@ -378,6 +378,35 @@ body {
 .strip-day.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
 .strip-day.today { box-shadow: var(--shadow-md); }
 
+/* Manage-settings: disabled buttons and collapsible category cards */
+.btn[disabled],
+.btn.disabled {
+    opacity: 0.5;
+    cursor: default;
+    pointer-events: none;
+    filter: grayscale(0.15);
+    box-shadow: none;
+}
+.move-btns button[disabled],
+.move-btns .btn.disabled {
+    opacity: 0.45;
+    pointer-events: none;
+    cursor: default;
+}
+.cat-card.collapsed {
+    opacity: 0.95;
+    border-style: dashed;
+}
+.cat-card.collapsed > div:nth-child(2) {
+    display: none !important;
+}
+.cat-card.collapsed .cat-drag,
+.cat-card.collapsed .cat-move-btns,
+.cat-card.collapsed .move-btns {
+    display: none !important;
+}
+.item-list .move-btns { gap: 4px; }
+
 .card-header {
     padding: 12px 16px;
     font-weight: 700;
