@@ -152,6 +152,7 @@ def checklist_summary():
 
 # Checklist priorities persistence (simple JSON file)
 PRIO_FILE = os.path.join(basedir, 'instance', 'checklist_priorities.json')
+PRIO_CAT_FILE = os.path.join(basedir, 'instance', 'checklist_priority_categories.json')
 
 def _load_priorities():
     try:
@@ -165,6 +166,18 @@ def _save_priorities(pr):
     with open(PRIO_FILE, 'w', encoding='utf-8') as f:
         json.dump(pr, f, ensure_ascii=False)
 
+def _load_priority_categories():
+    try:
+        with open(PRIO_CAT_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def _save_priority_categories(cats):
+    os.makedirs(os.path.dirname(PRIO_CAT_FILE), exist_ok=True)
+    with open(PRIO_CAT_FILE, 'w', encoding='utf-8') as f:
+        json.dump(cats, f, ensure_ascii=False)
+
 @app.route('/api/checklist/priorities')
 def get_priorities():
     return jsonify(_load_priorities())
@@ -174,11 +187,112 @@ def set_priority():
     data = request.json or {}
     item_id = str(data.get('id') or data.get('item_id') or '')
     priority = data.get('priority')
-    if not item_id or priority is None:
-        return jsonify({'error': 'id and priority required'}), 400
+    if not item_id:
+        return jsonify({'error': 'id required'}), 400
+
+    # treat 'auto' (or empty) as removal of explicit override => fallback to heuristic
+    if priority in ('auto', None, ''):
+        pr = _load_priorities()
+        if item_id in pr:
+            pr.pop(item_id, None)
+            _save_priorities(pr)
+        return jsonify({'ok': True})
+
+    # validate numeric category ids against stored categories, or accept 'handoff'
+    cats = _load_priority_categories()
+    cat_ids = [c.get('id') for c in cats]
+
     pr = _load_priorities()
-    pr[item_id] = priority
+    try:
+        if isinstance(priority, int):
+            if priority not in cat_ids:
+                return jsonify({'error': 'invalid priority id'}), 400
+            pr[item_id] = priority
+        else:
+            # string values
+            if isinstance(priority, str) and priority.isdigit():
+                pi = int(priority)
+                if pi not in cat_ids:
+                    return jsonify({'error': 'invalid priority id'}), 400
+                pr[item_id] = pi
+            elif priority == 'handoff':
+                pr[item_id] = 'handoff'
+            else:
+                return jsonify({'error': 'invalid priority value'}), 400
+    except Exception:
+        return jsonify({'error': 'invalid priority value'}), 400
+
     _save_priorities(pr)
+    return jsonify({'ok': True})
+
+# Priority category (grouping) CRUD and reorder endpoints
+@app.route('/api/checklist/priority-categories')
+def get_priority_categories():
+    cats = _load_priority_categories()
+    cats = sorted(cats, key=lambda c: c.get('sort_order', 0))
+    return jsonify(cats)
+
+@app.route('/api/checklist/priority-categories', methods=['POST'])
+def create_priority_category():
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'Name required'}), 400
+    cats = _load_priority_categories()
+    max_id = max([c.get('id', 0) for c in cats], default=0)
+    new_id = max_id + 1
+    max_order = max([c.get('sort_order', -1) for c in cats], default=-1)
+    cat = {'id': new_id, 'name': name, 'sort_order': max_order + 1}
+    cats.append(cat)
+    _save_priority_categories(cats)
+    return jsonify({'ok': True, 'id': new_id})
+
+@app.route('/api/checklist/priority-categories/<int:cat_id>', methods=['PUT'])
+def update_priority_category(cat_id):
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    cats = _load_priority_categories()
+    for c in cats:
+        if c.get('id') == cat_id:
+            if name:
+                c['name'] = name
+            _save_priority_categories(cats)
+            return jsonify({'ok': True})
+    return jsonify({'error': 'category not found'}), 404
+
+@app.route('/api/checklist/priority-categories/<int:cat_id>', methods=['DELETE'])
+def delete_priority_category(cat_id):
+    cats = _load_priority_categories()
+    new_cats = [c for c in cats if c.get('id') != cat_id]
+    if len(new_cats) == len(cats):
+        return jsonify({'error': 'category not found'}), 404
+    _save_priority_categories(new_cats)
+    # remove assignments pointing to this category (items fallback to heuristic)
+    pr = _load_priorities()
+    changed = False
+    for k, v in list(pr.items()):
+        try:
+            if int(v) == cat_id:
+                pr.pop(k, None)
+                changed = True
+        except Exception:
+            continue
+    if changed:
+        _save_priorities(pr)
+    return jsonify({'ok': True})
+
+@app.route('/api/checklist/priority-categories/reorder', methods=['POST'])
+def reorder_priority_categories():
+    data = request.json or {}
+    order = data.get('order', [])
+    if not isinstance(order, list):
+        return jsonify({'error': 'order must be a list of category ids'}), 400
+    cats = _load_priority_categories()
+    id_map = {c.get('id'): c for c in cats}
+    for idx, cid in enumerate(order):
+        if cid in id_map:
+            id_map[cid]['sort_order'] = idx
+    _save_priority_categories(list(id_map.values()))
     return jsonify({'ok': True})
 
 
