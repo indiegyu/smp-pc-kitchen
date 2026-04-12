@@ -823,6 +823,23 @@ input[type="date"]:focus { border-color: var(--primary); }
     align-items: center;
     justify-content: space-between;
 }
+
+/* Ensure header text stays left-aligned while the collapse arrow is right-aligned */
+.priority-header > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+.priority-header > div > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+.priority-header .collapse-arrow {
+    margin-left: 8px;
+}
 .priority-header .prio-icon { margin-right: 8px; font-size: 1.05rem; vertical-align: middle; }
 .priority-header .priority-toggle { border: none; background: transparent; padding: 4px; margin-left: 8px; cursor: pointer; }
 .priority-body { transition: max-height 0.18s ease, opacity 0.12s; }

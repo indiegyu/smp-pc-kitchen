@@ -520,7 +520,11 @@ async function toggleItemById(id) {
 
 // Summary strip
 async function loadSummaryStrip() {
-    const end = dateInput.value || getResetIsoDate();
+    // determine end date reliably (use input if present, otherwise reset-aware today)
+    let end = (dateInput.value && dateInput.value.trim()) ? dateInput.value : getResetIsoDate();
+    // normalize to YYYY-MM-DD to avoid timezone drift
+    end = new Date(end + 'T00:00:00').toISOString().split('T')[0];
+
     const startDateObj = new Date(end + 'T00:00:00');
     startDateObj.setDate(startDateObj.getDate() - 2); // show 3 days: today and 2 days prior
     const start = startDateObj.toISOString().split('T')[0];
@@ -537,10 +541,13 @@ async function loadSummaryStrip() {
         curr.setDate(curr.getDate() + 1);
     }
 
+    // compute selected date normalized
+    const selectedDate = (dateInput.value && dateInput.value.trim()) ? new Date(dateInput.value + 'T00:00:00').toISOString().split('T')[0] : end;
+
     document.getElementById('summaryStrip').innerHTML = dates.map(d => {
         const dt = new Date(d + 'T00:00:00');
         const dayName = dayNames[dt.getDay()];
-        const selected = d === dateInput.value;
+        const selected = d === selectedDate;
         return `<div class="strip-day ${selected ? 'selected' : ''} ${d === end ? 'today' : ''}" onclick="selectDate('${d}')">
             <div class="strip-label">${d.slice(5)} ${dayName}</div>
         </div>`;
