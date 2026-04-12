@@ -7,6 +7,10 @@
     <h1>SMP PC Kitchen <span id="shiftLabel">DayTime</span> Checklist</h1>
     <div class="header-controls">
         <input type="date" id="dateInput" value="">
+        <div id="currentSelectionBadge" class="current-badge" style="display:inline-flex;align-items:center;margin-left:12px;">
+            <span id="badgeText"></span>
+            <button class="btn btn-outline btn-sm" id="changeEntryBtn" style="margin-left:8px;display:none" onclick="showEntryModal()">변경</button>
+        </div>
     </div>
 </div>
 
@@ -38,6 +42,44 @@
     </div>
 </div>
 
+<!-- Entry modal: pick shift (오전/오후) then staff -->
+<div id="entryModal" class="entry-modal" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="entry-modal-inner" role="document">
+    <div class="entry-left" aria-hidden="false">
+      <h2 style="margin-bottom:8px;">근무 선택</h2>
+      <div style="max-width:360px;text-align:center;color:var(--text-secondary);margin-bottom:12px;">근무 형태를 선택한 뒤, 오른쪽에서 담당 직원을 골라주세요.</div>
+      <div class="entry-shifts" role="tablist" aria-label="근무 선택">
+        <button class="entry-shift-btn" data-shift="day" data-selected="false" onclick="selectShiftInModal('day')" data-shift-label>오전</button>
+        <button class="entry-shift-btn" data-shift="night" data-selected="false" onclick="selectShiftInModal('night')" data-shift-label>오후</button>
+      </div>
+    </div>
+    <div class="entry-right" id="entryRight" aria-live="polite">
+      <h3 id="entryRightTitle" style="margin-top:0;margin-bottom:12px;">직원 선택</h3>
+      <div class="entry-staff-list" id="entryStaffList"></div>
+    </div>
+    <button class="entry-close" aria-label="닫기" onclick="hideEntryModal()" style="position:absolute;top:12px;right:12px;background:transparent;border:none;font-size:26px;color:var(--text-secondary)">×</button>
+  </div>
+</div>
+
+<style>
+/* Entry modal styles (page-local) */
+.entry-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display:none; align-items:center; justify-content:center; z-index:2000; }
+.entry-modal-inner { background: var(--surface); width:100%; height:100%; max-width:1200px; display:flex; box-shadow:var(--shadow-md); border-radius:6px; overflow:hidden; }
+.entry-left { width:40%; background:var(--primary-light); padding:32px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+.entry-right { width:60%; padding:24px; overflow:auto; }
+.entry-shifts { display:flex; gap:16px; width:100%; justify-content:center; }
+.entry-shift-btn { padding:18px 30px; font-size:1.2rem; border-radius:12px; border:none; cursor:pointer; box-shadow:var(--shadow); background:var(--surface); }
+.entry-shift-btn.selected { background:var(--primary); color:#fff; }
+.entry-staff-list { display:flex; flex-direction:column; gap:8px; align-items:stretch; }
+.entry-staff { padding:14px 16px; border-radius:8px; background:var(--surface); border:1px solid var(--border); cursor:pointer; font-weight:700; color:var(--text); text-align:left; }
+.entry-staff:hover { background: var(--bg); }
+.entry-empty { color:var(--text-secondary); padding:12px; text-align:center; }
+@media (max-width: 800px) {
+  .entry-modal-inner { flex-direction:column; }
+  .entry-left, .entry-right { width:100%; height:50%; }
+}
+</style>
+
 <div class="shift-tabs">
     <button class="shift-tab active" data-shift="day" onclick="switchShift('day')">주간 (Day)</button>
     <button class="shift-tab" data-shift="night" onclick="switchShift('night')">야간 (Night)</button>
@@ -65,9 +107,24 @@
 let currentShift = 'day';
 let items = [];
 let noteTimers = {};
+let modalSelectedShift = 'day';
+let entryResolve = null;
+const ENTRY_RESET_HOUR = 4; // 04:00 기준으로 날짜 리셋
+
+function getResetIsoDate() {
+  const now = new Date();
+  const threshold = new Date(now);
+  threshold.setHours(ENTRY_RESET_HOUR,0,0,0);
+  if (now < threshold) {
+    const d = new Date(now);
+    d.setDate(d.getDate()-1);
+    return d.toISOString().split('T')[0];
+  }
+  return now.toISOString().split('T')[0];
+}
 
 const dateInput = document.getElementById('dateInput');
-dateInput.value = new Date().toISOString().split('T')[0];
+dateInput.value = getResetIsoDate();
 
 /* 우선순위 판별을 위한 키워드 매핑 (프론트엔드에서 임시 분류) */
 const PRIORITY_KEYWORDS = {
@@ -110,6 +167,90 @@ function mapNightGroup(name) {
   return 'mc1';
 }
 
+function selectionExists() {
+  const sd = localStorage.getItem('smp_selected_date');
+  return sd === getResetIsoDate() && localStorage.getItem('smp_shift') && localStorage.getItem('smp_staff');
+}
+
+function updateBadge(shift, staff) {
+  const badge = document.getElementById('badgeText');
+  if (!badge) return;
+  badge.textContent = `${shift === 'day' ? '오전' : '오후'} · ${staff}`;
+  const btn = document.getElementById('changeEntryBtn');
+  if (btn) btn.style.display = 'inline-block';
+}
+
+/* Entry modal flow */
+async function showEntryModal() {
+  const modal = document.getElementById('entryModal');
+  if (!modal) return Promise.resolve();
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden','false');
+  const storedShift = localStorage.getItem('smp_shift') || 'day';
+  selectShiftInModal(storedShift);
+  return new Promise(resolve => { entryResolve = resolve; });
+}
+
+function hideEntryModal() {
+  const modal = document.getElementById('entryModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden','true');
+}
+
+function selectShiftInModal(shift) {
+  modalSelectedShift = shift;
+  document.querySelectorAll('.entry-shift-btn').forEach(b => {
+    const s = b.getAttribute('data-shift');
+    if (s === shift) { b.classList.add('selected'); b.setAttribute('data-selected','true'); } else { b.classList.remove('selected'); b.setAttribute('data-selected','false'); }
+  });
+  renderStaffList(shift);
+}
+
+async function renderStaffList(shift) {
+  const list = document.getElementById('entryStaffList');
+  list.innerHTML = '로딩 중...';
+  try {
+    const staff = await api('/api/staff');
+    if (!staff || !staff.length) {
+      list.innerHTML = '<div class="entry-empty">직원 목록이 없습니다.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    staff.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'entry-staff';
+      el.dataset.id = s.id;
+      el.textContent = s.name;
+      el.addEventListener('click', () => confirmStaff(s));
+      list.appendChild(el);
+    });
+  } catch (err) {
+    list.innerHTML = '<div class="entry-empty">직원 목록을 불러오지 못했습니다.</div>';
+  }
+}
+
+function confirmStaff(s) {
+  const sd = getResetIsoDate();
+  localStorage.setItem('smp_shift', modalSelectedShift);
+  localStorage.setItem('smp_staff', s.name);
+  localStorage.setItem('smp_selected_date', sd);
+  currentShift = modalSelectedShift;
+  updateBadge(currentShift, s.name);
+  hideEntryModal();
+  if (entryResolve) { entryResolve(); entryResolve = null; }
+}
+
+function resetSelection() {
+  localStorage.removeItem('smp_shift');
+  localStorage.removeItem('smp_staff');
+  localStorage.removeItem('smp_selected_date');
+  const btn = document.getElementById('changeEntryBtn');
+  if (btn) btn.style.display = 'none';
+  showEntryModal().then(() => { loadChecklist(); loadNotes(); loadSummaryStrip(); });
+}
+
+/* Staff bar (top) */
 async function loadStaff() {
     const staff = await api('/api/staff');
     const container = document.getElementById('staffButtons');
@@ -123,21 +264,29 @@ function selectStaff(btn) {
     document.querySelectorAll('.staff-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     localStorage.setItem('smp_staff', btn.dataset.name);
+    // also update badge if exists
+    const shift = localStorage.getItem('smp_shift') || currentShift;
+    updateBadge(shift, btn.dataset.name);
 }
 
-function switchShift(shift) {
-    currentShift = shift;
-    document.querySelectorAll('.shift-tab').forEach(t => t.classList.toggle('active', t.dataset.shift === shift));
-    document.getElementById('shiftLabel').textContent = shift === 'day' ? 'DayTime' : 'Night Time';
-    loadChecklist();
-    loadNotes();
-    loadSummaryStrip();
-}
-
+/* Checklist loading */
 async function loadChecklist() {
-    items = await api(`/api/checklist/${currentShift}?date=${dateInput.value}`);
-    items = items.map(it => ({...it, priority: assignPriority(it.name), night_group: (currentShift === 'night' ? mapNightGroup(it.name) : null)}));
-    render();
+    // ensure entry selection exists (date boundaries considered)
+    if (!selectionExists()) {
+      await showEntryModal();
+    }
+    // set currentShift from storage if available
+    currentShift = localStorage.getItem('smp_shift') || currentShift;
+    // ensure date input uses reset-aware date by default
+    if (!dateInput.value) dateInput.value = getResetIsoDate();
+
+    try {
+      const itemsResp = await api(`/api/checklist/${currentShift}?date=${dateInput.value}`);
+      items = itemsResp.map(it => ({...it, priority: assignPriority(it.name), night_group: (currentShift === 'night' ? mapNightGroup(it.name) : null)}));
+      render();
+    } catch (err) {
+      showToast('데이터 불러오기 실패', 'error');
+    }
 }
 
 function render() {
@@ -304,6 +453,7 @@ async function saveNote(type) {
     });
 }
 
+/* Initialization flow */
 document.getElementById('purchaseNote').addEventListener('input', () => autoSaveNote('purchase'));
 document.getElementById('handoffNote').addEventListener('input', () => autoSaveNote('handoff'));
 document.getElementById('purchaseNote').addEventListener('blur', () => saveNote('purchase'));
@@ -311,9 +461,19 @@ document.getElementById('handoffNote').addEventListener('blur', () => saveNote('
 dateInput.addEventListener('change', () => { loadChecklist(); loadNotes(); loadSummaryStrip(); });
 
 loadStaff();
-loadChecklist();
-loadNotes();
-loadSummaryStrip();
+(async function initFlow() {
+    // if selection exists for the reset-aware date, use it; otherwise prompt entry modal
+    if (selectionExists()) {
+        currentShift = localStorage.getItem('smp_shift') || 'day';
+        updateBadge(currentShift, localStorage.getItem('smp_staff') || '');
+    } else {
+        await showEntryModal();
+    }
+    loadChecklist();
+    loadNotes();
+    loadSummaryStrip();
+})();
+
 // restore UI prefs (top-note + priority collapsed state)
 (function restoreUI() {
     const topCollapsed = localStorage.getItem('topnote_collapsed') === '1';
@@ -325,7 +485,7 @@ loadSummaryStrip();
         btn.setAttribute('aria-expanded', 'false');
     }
     setTimeout(() => {
-        [1,2,3,4,5,'handoff'].forEach(k => {
+        [1,2,3,4,5,'handoff','mc1','mc2','closing'].forEach(k => {
             const collapsed = localStorage.getItem('prio_collapsed_' + k) === '1';
             const box = document.querySelector('.priority-box[data-key="'+k+'"]');
             if (!box) return;
