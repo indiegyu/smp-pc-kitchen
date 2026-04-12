@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}관리자 - SMP PC Kitchen{% endblock %}
 {% block nav_class %}admin-nav{% endblock %}
-{% block nav_links %}{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -189,9 +188,10 @@
 function byId(id){ return document.getElementById(id); }
 function exists(id){ return !!byId(id); }
 
+let currentDetailShift = 'day';
 const viewDate = byId('viewDate');
 if (viewDate) viewDate.value = new Date().toISOString().split('T')[0];
-let currentDetailShift = 'day';
+if (viewDate) viewDate.addEventListener('change', () => { loadDetail(currentDetailShift); loadSummary(); });
 let allItems = [];
 let allCategories = [];
 let selectedSummaryDate = viewDate ? viewDate.value : new Date().toISOString().split('T')[0];
@@ -233,8 +233,8 @@ async function removeStaff(id) { await api(`/api/staff/${id}`, { method: 'DELETE
 /* Summary (checklist) */
 async function loadSummary() {
     if (!exists('summaryCards')) return;
-    const end = new Date().toISOString().split('T')[0];
-    const start = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
+const end = (viewDate && viewDate.value && viewDate.value.trim()) ? viewDate.value : new Date().toISOString().split('T')[0];
+const start = new Date(new Date(end + 'T00:00:00').getTime() - 4 * 86400000).toISOString().split('T')[0];
     const data = await api(`/api/checklist/summary?start=${start}&end=${end}`);
     const byDate = {};
     data.forEach(r => { if (!byDate[r.date]) byDate[r.date] = {}; byDate[r.date][r.shift] = r; });

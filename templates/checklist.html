@@ -147,7 +147,9 @@ function getResetIsoDate() {
 }
 
 const dateInput = document.getElementById('dateInput');
+let dateUserSelected = false;
 dateInput.value = getResetIsoDate();
+dateInput.addEventListener('input', () => { dateUserSelected = true; });
 
 /* 우선순위 판별을 위한 키워드 매핑 (프론트엔드에서 임시 분류) */
 const PRIORITY_KEYWORDS = {
@@ -521,13 +523,13 @@ async function toggleItemById(id) {
 // Summary strip
 async function loadSummaryStrip() {
     // determine end date reliably (use input if present, otherwise reset-aware today)
-    let end = (dateInput.value && dateInput.value.trim()) ? dateInput.value : getResetIsoDate();
+    let end = (dateUserSelected && dateInput.value && dateInput.value.trim()) ? dateInput.value : getResetIsoDate();
     // normalize to YYYY-MM-DD to avoid timezone drift
     end = new Date(end + 'T00:00:00').toISOString().split('T')[0];
 
-    const startDateObj = new Date(end + 'T00:00:00');
-    startDateObj.setDate(startDateObj.getDate() - 3); // show 4 days: today and 3 days prior
-    const start = startDateObj.toISOString().split('T')[0];
+const startDateObj = new Date(end + 'T00:00:00');
+startDateObj.setDate(startDateObj.getDate() - 4); // show 5 days: today and 4 days prior
+const start = startDateObj.toISOString().split('T')[0];
     const data = await api(`/api/checklist/summary?start=${start}&end=${end}`);
     const byDate = {};
     data.forEach(r => { if (!byDate[r.date]) byDate[r.date] = {}; byDate[r.date][r.shift] = r; });
