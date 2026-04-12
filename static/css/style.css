@@ -1070,10 +1070,19 @@ input[type="date"]:focus { border-color: var(--primary); }
 
 /* Cat-card header toggle arrow (right-side) */
 .cat-card-header .toggle-arrow {
-    transition: transform 0.2s;
-    font-size: 0.9rem;
+    transition: transform 0.18s ease;
+    font-size: 1.8rem !important; /* bigger for visibility */
     color: var(--text-secondary);
-    margin-left: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px !important;
+    height: 44px !important;
+    line-height: 1;
+    border-radius: 8px;
+    margin-left: 12px;
+    order: 99; /* keep at the far right of header */
+    cursor: pointer;
 }
 .cat-card.collapsed .cat-card-header .toggle-arrow {
     transform: rotate(-90deg);

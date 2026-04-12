@@ -92,23 +92,62 @@
     const today = new Date().toISOString().split('T')[0];
     const day = await ajaxApi(`/api/checklist/day?date=${today}`) || [];
     const night = await ajaxApi(`/api/checklist/night?date=${today}`) || [];
+    const prMap = await ajaxApi('/api/checklist/priorities') || {};
+
+    function prOptions(selected){
+      const opts = [
+        {v:'auto', t:'자동(휴리스틱)'},
+        {v:'1', t:'1 - Top'},
+        {v:'2', t:'2 - 주방 정리'},
+        {v:'3', t:'3 - 업장 청소'},
+        {v:'4', t:'4 - 재고 채우기'},
+        {v:'5', t:'5 - 전문 작업'},
+        {v:'handoff', t:'인수인계'}
+      ];
+      return opts.map(o => `<option value="${o.v}" ${o.v === selected ? 'selected' : ''}>${o.t}</option>`).join('');
+    }
 
     const render = (elId, items) => {
       const ul = byId(elId);
       if(!ul) return;
-      ul.innerHTML = items.map(it => `
+      ul.innerHTML = items.map(it => {
+        const cur = (prMap && prMap[String(it.id)] !== undefined) ? String(prMap[String(it.id)]) : 'auto';
+        return `
         <li data-id="${it.id}" style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border);background:var(--bg);">
           <span class="drag-handle" style="cursor:grab;font-size:1.1rem">≡</span>
           <span class="move-btns" style="display:none;flex-direction:column;gap:4px;">
             <button class="btn btn-sm move-up" title="위로">▲</button>
             <button class="btn btn-sm move-down" title="아래로">▼</button>
           </span>
+          <select class="prio-select" style="width:120px;margin-right:8px">${prOptions(cur)}</select>
           <span class="item-name" style="flex:1">${escapeHtml(it.name)}</span>
           <input class="edit-input" type="text" style="display:none;flex:1;padding:6px;border:1px solid var(--border);border-radius:6px">
           <button class="btn btn-outline btn-sm edit-btn">수정</button>
           <button class="btn btn-sm delete-btn" style="background:var(--danger-light);color:var(--danger)">삭제</button>
         </li>
-      `).join('');
+      `;
+      }).join('');
+
+      // priority change handlers
+      ul.querySelectorAll('.prio-select').forEach(sel=>{
+        sel.addEventListener('change', async e=>{
+          const li = sel.closest('li');
+          if(!li) return;
+          const id = li.dataset.id;
+          const val = sel.value;
+          let payload;
+          if (val === 'auto') payload = { id: id, priority: 'auto' };
+          else if (val === 'handoff') payload = { id: id, priority: 'handoff' };
+          else payload = { id: id, priority: parseInt(val, 10) };
+          try {
+            await ajaxApi('/api/checklist/priorities', { method:'POST', body: payload });
+            showToast && showToast('우선순위 저장됨');
+            await renderChecklistLists();
+          } catch (err) {
+            showToast && showToast('저장 실패','error');
+          }
+        });
+      });
 
       ul.querySelectorAll('.edit-btn').forEach(btn=>{
         btn.addEventListener('click', e=>{

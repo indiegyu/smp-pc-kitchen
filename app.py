@@ -3,6 +3,7 @@ from models import db, Staff, ChecklistItem, ChecklistLog, DailyNote, \
     InventoryCategory, InventoryItem, InventoryTransaction, ShortageItem, ShortageCount
 from datetime import datetime, date, timedelta
 import os
+import json
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -148,6 +149,37 @@ def checklist_summary():
             })
         current += timedelta(days=1)
     return jsonify(results)
+
+# Checklist priorities persistence (simple JSON file)
+PRIO_FILE = os.path.join(basedir, 'instance', 'checklist_priorities.json')
+
+def _load_priorities():
+    try:
+        with open(PRIO_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_priorities(pr):
+    os.makedirs(os.path.dirname(PRIO_FILE), exist_ok=True)
+    with open(PRIO_FILE, 'w', encoding='utf-8') as f:
+        json.dump(pr, f, ensure_ascii=False)
+
+@app.route('/api/checklist/priorities')
+def get_priorities():
+    return jsonify(_load_priorities())
+
+@app.route('/api/checklist/priorities', methods=['POST'])
+def set_priority():
+    data = request.json or {}
+    item_id = str(data.get('id') or data.get('item_id') or '')
+    priority = data.get('priority')
+    if not item_id or priority is None:
+        return jsonify({'error': 'id and priority required'}), 400
+    pr = _load_priorities()
+    pr[item_id] = priority
+    _save_priorities(pr)
+    return jsonify({'ok': True})
 
 
 # ─── Checklist management API (create/update/delete/reorder) ───────────────────────────

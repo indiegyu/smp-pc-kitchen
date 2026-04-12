@@ -145,14 +145,80 @@
 function byId(id){ return document.getElementById(id); }
 function exists(id){ return !!byId(id); }
 
+function getResetIsoDate() {
+    const now = new Date();
+    const threshold = new Date(now);
+    threshold.setHours(4,0,0,0);
+    if (now < threshold) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 1);
+        return d.toISOString().split('T')[0];
+    }
+    return now.toISOString().split('T')[0];
+}
 let currentDetailShift = 'day';
 const viewDate = byId('viewDate');
-if (viewDate) viewDate.value = new Date().toISOString().split('T')[0];
-if (viewDate) viewDate.addEventListener('change', () => { loadDetail(currentDetailShift); loadSummary(); });
+let viewDateUserSelected = false;
+if (viewDate) {
+    viewDate.value = getResetIsoDate();
+    viewDate.addEventListener('input', () => { viewDateUserSelected = true; });
+    viewDate.addEventListener('change', () => { viewDateUserSelected = true; loadDetail(currentDetailShift); loadSummary(); });
+}
 let allItems = [];
 let allCategories = [];
-let selectedSummaryDate = viewDate ? viewDate.value : new Date().toISOString().split('T')[0];
+let selectedSummaryDate = viewDate ? viewDate.value : getResetIsoDate();
 let invMgmtCatFilter = null;
+
+/* Priority heuristic used to render grouping in admin */
+const PRIORITY_KEYWORDS = {
+  1: ['무인 관제 해제', '얼음 디스펜서', '복숭아', '주방 안쪽 창문', '주방 포스기', '식기세척기 전원', '식기세척기'],
+  2: ['좌석 식기', '좌석 청소', '정수기', '카페머신', '라면 조리기', '행주 삶기', '밥 솥', '음료 디스펜서', '설거지'],
+  3: ['홀 바닥', '매장 밖', '화장실', '흡연실', '유리', '주방 입구'],
+  4: ['셀프바', '캔음료', '스낵바', '소스', '소스 체크'],
+  5: ['야채', '냉동', '자재', '시재'],
+  'handoff': ['최후의 수거','쓰레기 밖','음식물 처리기','퇴근','무인 간판','시재']
+};
+
+function assignPriority(name, shift) {
+  const n = name || '';
+  if (shift === 'night') {
+    for (const kw of PRIORITY_KEYWORDS['handoff']) {
+      if (n.includes(kw)) return 1;
+    }
+  }
+  for (const p of [1,2,3,4,5]) {
+    for (const kw of PRIORITY_KEYWORDS[p]) {
+      if (n.includes(kw)) return p;
+    }
+  }
+  for (const kw of PRIORITY_KEYWORDS['handoff']) {
+    if (n.includes(kw)) return 'handoff';
+  }
+  return 3;
+}
+
+function mapNightGroup(name) {
+  const n = name || '';
+  const closing = ['최종 정산','인수인계','퇴근','무인','카드기','가게폰','제트건','노트북','퇴근 카드'];
+  for (const kw of closing) { if (n.includes(kw)) return 'closing'; }
+  const mc2 = ['카페 냉장고','카페','라면 기계','라면','인덕션','튀김','간택기','오븐','장비','세척','기계','래들','스쿱','젓가락','냉동'];
+  for (const kw of mc2) { if (n.includes(kw)) return 'mc2'; }
+  const mc1 = ['최후의 수거','좌석 청소','좌석','설거지','식세기','싱크','노란바구니','수거','정리','물빼기'];
+  for (const kw of mc1) { if (n.includes(kw)) return 'mc1'; }
+  return 'mc1';
+}
+
+function togglePriorityBox(key, el) {
+    const box = document.querySelector('.priority-box[data-key="'+key+'"]');
+    if (!box) return;
+    const body = box.querySelector('.priority-body');
+    const header = el || box.querySelector('.priority-header');
+    const arrow = box.querySelector('.collapse-arrow');
+    const collapsed = body.classList.toggle('collapsed');
+    if (arrow) arrow.classList.toggle('collapsed', collapsed);
+    if (header && header.setAttribute) header.setAttribute('aria-expanded', (!collapsed).toString());
+    localStorage.setItem('prio_collapsed_' + key, collapsed ? '1' : '0');
+}
 
 function toggleSection(id) {
     const el = byId(id);
@@ -190,11 +256,19 @@ async function removeStaff(id) { await api(`/api/staff/${id}`, { method: 'DELETE
 /* Summary (checklist) */
 async function loadSummary() {
     if (!exists('summaryCards')) return;
-    const end = (viewDate && viewDate.value && viewDate.value.trim()) ? viewDate.value : new Date().toISOString().split('T')[0];
-    const endDate = new Date(end + 'T00:00:00');
+    // if viewDate is empty (no user selection), ensure it defaults to the reset-aware date
+    if (viewDate && (!viewDate.value || !viewDate.value.trim())) viewDate.value = getResetIsoDate();
+    // prefer explicit user selection; otherwise use reset-aware "today"
+    const end = (viewDate && viewDateUserSelected && viewDate.value && viewDate.value.trim()) ? viewDate.value : getResetIsoDate();
+
+    function parseYMD(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+    function formatYMD(dt){ return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; }
+
+    const endDate = parseYMD(end);
     const startDate = new Date(endDate);
     startDate.setDate(endDate.getDate() - 4); // show 5 days: today and 4 days prior
-    const start = startDate.toISOString().split('T')[0];
+    const start = formatYMD(startDate);
+
     const data = await api(`/api/checklist/summary?start=${start}&end=${end}`);
     const byDate = {};
     data.forEach(r => { if (!byDate[r.date]) byDate[r.date] = {}; byDate[r.date][r.shift] = r; });
@@ -203,7 +277,7 @@ async function loadSummary() {
     const dates = [];
     const curr = new Date(startDate);
     while (curr <= endDate) {
-        dates.push(curr.toISOString().split('T')[0]);
+        dates.push(formatYMD(curr));
         curr.setDate(curr.getDate() + 1);
     }
     // ensure selectedSummaryDate is within the 5-day window; default to today (end) if not
@@ -211,7 +285,7 @@ async function loadSummary() {
         selectedSummaryDate = end;
     }
     document.getElementById('summaryCards').innerHTML = dates.map(d => {
-        const dt = new Date(d + 'T00:00:00');
+        const dt = parseYMD(d);
         const dayData = (byDate[d] && byDate[d].day) || {done:0,total:0};
         const nightData = (byDate[d] && byDate[d].night) || {done:0,total:0};
         const dayPct = dayData.total ? Math.round(dayData.done/dayData.total*100) : 0;
@@ -248,21 +322,90 @@ async function loadDetail(shift) {
     if (byId('detailNightBtn')) byId('detailNightBtn').style.background = shift === 'night' ? 'var(--primary-light)' : '';
     if (byId('detailTitle') && viewDate) byId('detailTitle').textContent = `${viewDate.value} ${shift === 'day' ? '주간' : '야간'} 체크리스트`;
 
-    const items = await api(`/api/checklist/${shift}?date=${viewDate ? viewDate.value : new Date().toISOString().split('T')[0]}`);
-    byId('detailList').innerHTML = items.map(item => `
-        <div class="cl-item ${item.completed ? 'checked' : ''}" style="cursor:default">
-            <div class="cl-check"></div>
-            <div class="cl-name">${item.name}</div>
-            ${item.completed ? `<div class="cl-meta">${item.completed_by || ''} ${item.completed_at || ''}</div>` : ''}
-        </div>
-    `).join('');
+    const items = await api(`/api/checklist/${shift}?date=${viewDate ? viewDate.value : new Date().toISOString().split('T')[0]}`) || [];
+    const prMap = await api('/api/checklist/priorities') || {};
 
-    const [purchase, handoff] = await Promise.all([
-        api(`/api/notes/${shift}/purchase?date=${viewDate ? viewDate.value : new Date().toISOString().split('T')[0]}`),
-        api(`/api/notes/${shift}/handoff?date=${viewDate ? viewDate.value : new Date().toISOString().split('T')[0]}`),
-    ]);
-    if (byId('adminPurchaseNote')) byId('adminPurchaseNote').textContent = purchase.content || '-';
-    if (byId('adminHandoffNote')) byId('adminHandoffNote').textContent = handoff.content || '-';
+    const enriched = items.map(it => {
+        const pid = String(it.id);
+        let priority;
+        if (prMap && Object.prototype.hasOwnProperty.call(prMap, pid)) {
+            const stored = prMap[pid];
+            // treat explicit 'auto' as fallback to heuristic
+            if (stored === 'auto' || stored === null || typeof stored === 'undefined') {
+                priority = assignPriority(it.name, shift);
+            } else {
+                priority = stored;
+            }
+        } else {
+            priority = assignPriority(it.name, shift);
+        }
+        return { ...it, priority, night_group: (shift === 'night' ? mapNightGroup(it.name) : null) };
+    });
+
+    const container = byId('detailList');
+    if (!container) return;
+
+    if (shift === 'night') {
+        const groups = {
+            mc1: {title: '마감 청소 1', cls: 'priority-1'},
+            mc2: {title: '마감 청소 2', cls: 'priority-2'},
+            closing: {title: '마감', cls: 'priority-3'}
+        };
+        const icons = {mc1: '🧹', mc2: '🧽', closing: '🏁'};
+        let html = '';
+        ['mc1','mc2','closing'].forEach(key => {
+            const list = enriched.filter(i => (i.night_group || mapNightGroup(i.name)) === key);
+            const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
+            html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
+            html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+            html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
+            if (!list.length) {
+                html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+            } else {
+                html += list.map(it => `
+                    <div class="cl-item ${it.completed ? 'checked' : ''}" style="cursor:default">
+                        <div class="cl-check"></div>
+                        <div class="cl-name">${it.name}</div>
+                        ${it.completed ? `<div class="cl-meta">${it.completed_by || ''} ${it.completed_at || ''}</div>` : ''}
+                    </div>
+                `).join('');
+            }
+            html += `</div></div>`;
+        });
+        container.innerHTML = html;
+        return;
+    }
+
+    const groups = {
+        1: {title: '우선순위 1 (Top Priority)', cls: 'priority-1'},
+        2: {title: '우선순위 2 (주방 정리)', cls: 'priority-2'},
+        3: {title: '우선순위 3 (업장 청소)', cls: 'priority-3'},
+        4: {title: '우선순위 4 (재고 채우기)', cls: 'priority-4'},
+        5: {title: '우선순위 5 (전문 작업)', cls: 'priority-5'},
+        'handoff': {title: '오전 인수인계전 체크사항', cls: 'priority-1'}
+    };
+    const icons = {1: '⚠️', 2: '🧼', 3: '🧹', 4: '📦', 5: '🔧', 'handoff': '🔁'};
+    let html = '';
+    [1,2,3,4,5,'handoff'].forEach(key => {
+        const list = enriched.filter(i => i.priority == key);
+        const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
+        html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
+        html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+        html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
+        if (!list.length) {
+            html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+        } else {
+            html += list.map(it => `
+                <div class="cl-item ${it.completed ? 'checked' : ''}" style="cursor:default">
+                    <div class="cl-check"></div>
+                    <div class="cl-name">${it.name}</div>
+                    ${it.completed ? `<div class="cl-meta">${it.completed_by || ''} ${it.completed_at || ''}</div>` : ''}
+                </div>
+            `).join('');
+        }
+        html += `</div></div>`;
+    });
+    container.innerHTML = html;
 }
 
 /* Inventory helpers (only used when inventory view active) */
