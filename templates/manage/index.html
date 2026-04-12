@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}관리자 대시보드 - SMP PC Kitchen{% endblock %}
+{% block nav_class %}admin-nav{% endblock %}
+{% block nav_links %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>관리자</h1>
+  <div style="margin-left:auto; display:flex; gap:8px;">
+    <a href="/manage/checklist" class="btn btn-outline btn-sm" id="tabOps">운영</a>
+    <a href="/manage/inventory" class="btn btn-outline btn-sm" id="tabInv">재고</a>
+    <a href="/manage/settings" class="btn btn-outline btn-sm" id="tabSet">설정</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:16px">
+    <p style="color:var(--text-secondary)">원하시는 섹션을 선택하세요.</p>
+    <ul>
+      <li><a href="/manage/checklist">직원 및 체크리스트 관리</a></li>
+      <li><a href="/manage/inventory">재고 관리</a></li>
+      <li><a href="/manage/settings">설정</a></li>
+    </ul>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // mark active tab if user navigates directly
+  const p = window.location.pathname;
+  const map = {'/manage':'tabOps','/manage/checklist':'tabOps','/manage/inventory':'tabInv','/manage/settings':'tabSet'};
+  const id = map[p] || (p.startsWith('/manage/') ? (p.includes('inventory')?'tabInv':(p.includes('settings')?'tabSet':'tabOps')) : null);
+  if (id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+  }
+})();
+</script>
+{% endblock %}

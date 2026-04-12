@@ -26,8 +26,20 @@ def inventory_page():
 
 
 @app.route('/manage')
-def admin_page():
+def manage_index():
+    return render_template('manage/index.html')
+
+@app.route('/manage/checklist')
+def manage_checklist():
     return render_template('admin.html')
+
+@app.route('/manage/inventory')
+def manage_inventory_page():
+    return render_template('admin.html')
+
+@app.route('/manage/settings')
+def manage_settings():
+    return render_template('manage/settings.html')
 
 
 # ─── Staff API ───────────────────────────────────────────
@@ -136,6 +148,95 @@ def checklist_summary():
         current += timedelta(days=1)
     return jsonify(results)
 
+
+# ─── Checklist management API (create/update/delete/reorder) ───────────────────────────
+@app.route('/api/checklist/item', methods=['POST'])
+def create_checklist_item():
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    shift = data.get('shift', 'day')
+    if not name:
+        return jsonify({'error': 'Name required'}), 400
+    max_order = db.session.query(db.func.max(ChecklistItem.sort_order)).filter_by(shift=shift).scalar() or 0
+    item = ChecklistItem(name=name, shift=shift, sort_order=(max_order + 1), active=True)
+    db.session.add(item)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': item.id})
+
+@app.route('/api/checklist/item/<int:item_id>', methods=['PUT'])
+def update_checklist_item(item_id):
+    data = request.json or {}
+    item = ChecklistItem.query.get_or_404(item_id)
+    if 'name' in data:
+        item.name = (data.get('name') or '').strip()
+    if 'shift' in data:
+        item.shift = data.get('shift')
+    if 'active' in data:
+        item.active = bool(data.get('active'))
+    if 'sort_order' in data:
+        try:
+            item.sort_order = int(data.get('sort_order'))
+        except:
+            pass
+    db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/checklist/item/<int:item_id>', methods=['DELETE'])
+def delete_checklist_item(item_id):
+    item = ChecklistItem.query.get_or_404(item_id)
+    # soft-delete by marking inactive
+    item.active = False
+    db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/checklist/reorder', methods=['POST'])
+def reorder_checklist():
+    data = request.json or {}
+    shift = data.get('shift')  # optional: restrict to a shift
+    order = data.get('order', [])
+    if not isinstance(order, list):
+        return jsonify({'error': 'order must be a list of item ids'}), 400
+    for idx, iid in enumerate(order):
+        it = ChecklistItem.query.get(iid)
+        if not it:
+            continue
+        if shift and it.shift != shift:
+            continue
+        it.sort_order = idx
+    db.session.commit()
+    return jsonify({'ok': True})
+
+# ─── Inventory reorder endpoints (categories/items)
+@app.route('/api/inventory/categories/reorder', methods=['POST'])
+def reorder_categories():
+    data = request.json or {}
+    order = data.get('order', [])
+    if not isinstance(order, list):
+        return jsonify({'error': 'order must be a list of category ids'}), 400
+    for idx, cid in enumerate(order):
+        cat = InventoryCategory.query.get(cid)
+        if not cat:
+            continue
+        cat.sort_order = idx
+    db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/inventory/items/reorder', methods=['POST'])
+def reorder_inventory_items():
+    data = request.json or {}
+    category_id = data.get('category_id')
+    order = data.get('order', [])
+    if not isinstance(order, list):
+        return jsonify({'error': 'order must be a list of item ids'}), 400
+    for idx, iid in enumerate(order):
+        it = InventoryItem.query.get(iid)
+        if not it:
+            continue
+        if category_id and it.category_id != category_id:
+            continue
+        it.sort_order = idx
+    db.session.commit()
+    return jsonify({'ok': True})
 
 # ─── Daily Notes API ─────────────────────────────────────
 

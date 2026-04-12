@@ -12,8 +12,10 @@
     <nav class="navbar {% block nav_class %}{% endblock %}">
         <div style="display:flex;align-items:center;gap:8px;">
             <div class="nav-brand" id="navBrand">SMP PC Kitchen</div>
-            {% if request.path != '/manage' %}
-            <button id="adminBtn" class="btn btn-outline btn-sm" aria-label="관리자">관리</button>
+            {% if request.path.startswith('/manage') %}
+            <button id="homeBtn" class="btn btn-outline btn-sm" aria-label="일반">일반</button>
+            {% else %}
+            <button id="adminBtn" class="btn btn-outline btn-sm" aria-label="관리">관리</button>
             {% endif %}
         </div>
         {% block nav_links %}
@@ -72,6 +74,7 @@
         // Admin button + password modal (mobile-friendly)
         (function() {
             const adminBtn = document.getElementById('adminBtn');
+            const homeBtn = document.getElementById('homeBtn');
             const modal = document.getElementById('adminModal');
             const passwdInput = document.getElementById('adminPassword');
             const cancelBtn = document.getElementById('adminCancelBtn');
@@ -88,6 +91,7 @@
             }
 
             if (adminBtn) adminBtn.addEventListener('click', showModal);
+            if (homeBtn) homeBtn.addEventListener('click', () => { window.location.href = '/'; });
             if (cancelBtn) cancelBtn.addEventListener('click', hideModal);
             if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(); });
 

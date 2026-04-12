@@ -526,7 +526,7 @@ async function loadSummaryStrip() {
     end = new Date(end + 'T00:00:00').toISOString().split('T')[0];
 
     const startDateObj = new Date(end + 'T00:00:00');
-    startDateObj.setDate(startDateObj.getDate() - 2); // show 3 days: today and 2 days prior
+    startDateObj.setDate(startDateObj.getDate() - 3); // show 4 days: today and 3 days prior
     const start = startDateObj.toISOString().split('T')[0];
     const data = await api(`/api/checklist/summary?start=${start}&end=${end}`);
     const byDate = {};

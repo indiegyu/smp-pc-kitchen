@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}관리자 설정 - SMP PC Kitchen{% endblock %}
+{% block nav_class %}admin-nav{% endblock %}
+{% block nav_links %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>관리자 설정</h1>
+  <div style="margin-left:auto; display:flex; gap:8px;">
+    <a href="/manage/checklist" class="btn btn-outline btn-sm" id="tabOps">운영</a>
+    <a href="/manage/inventory" class="btn btn-outline btn-sm" id="tabInv">재고</a>
+    <a href="/manage/settings" class="btn btn-outline btn-sm active" id="tabSet">설정</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:16px">
+    <p style="color:var(--text-secondary)">관리자 관련 설정과 도구는 이곳에 모아두세요. (향후 마이그레이션, 시드, 백업 UI 등 추가)</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // mark active tab when opened directly
+  const p = window.location.pathname;
+  const map = {'/manage':'tabOps','/manage/checklist':'tabOps','/manage/inventory':'tabInv','/manage/settings':'tabSet'};
+  const id = map[p] || (p.startsWith('/manage/') ? (p.includes('inventory')?'tabInv':(p.includes('settings')?'tabSet':'tabOps')) : null);
+  if (id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+  }
+})();
+</script>
+{% endblock %}
