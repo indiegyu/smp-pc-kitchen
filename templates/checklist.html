@@ -211,13 +211,17 @@ async function renderStaffList(shift) {
   const list = document.getElementById('entryStaffList');
   list.innerHTML = '로딩 중...';
   try {
-    const staff = await api('/api/staff');
-    if (!staff || !staff.length) {
+    const staff = await api('/api/staff') || [];
+    let visible = Array.isArray(staff) ? staff.filter(s => s && s.name && s.name.trim()) : [];
+    if ((!visible || visible.length === 0) && Array.isArray(staff) && staff.length) {
+      visible = staff.map(s => ({ ...s, name: (s && s.name && s.name.trim()) ? s.name : `직원 ${s.id}` }));
+    }
+    if (!visible || visible.length === 0) {
       list.innerHTML = '<div class="entry-empty">직원 목록이 없습니다.</div>';
       return;
     }
     list.innerHTML = '';
-    staff.forEach(s => {
+    visible.forEach(s => {
       const el = document.createElement('div');
       el.className = 'entry-staff';
       el.dataset.id = s.id;
@@ -252,12 +256,31 @@ function resetSelection() {
 
 /* Staff bar (top) */
 async function loadStaff() {
-    const staff = await api('/api/staff');
     const container = document.getElementById('staffButtons');
-    const saved = localStorage.getItem('smp_staff');
-    container.innerHTML = staff.map(s =>
-        `<button class="staff-btn ${s.name === saved ? 'selected' : ''}" data-name="${s.name}" onclick="selectStaff(this)">${s.name}</button>`
-    ).join('');
+    container.innerHTML = '';
+    const saved = localStorage.getItem('smp_staff') || '';
+    try {
+        const staff = await api('/api/staff') || [];
+        let visible = Array.isArray(staff) ? staff.filter(s => s && s.name && s.name.trim()) : [];
+        if ((!visible || visible.length === 0) && Array.isArray(staff) && staff.length) {
+            visible = staff.map(s => ({ ...s, name: (s && s.name && s.name.trim()) ? s.name : `직원 ${s.id}` }));
+        }
+        if (!visible || visible.length === 0) {
+            if (saved) {
+                container.innerHTML = `<button class="staff-btn selected" data-name="${saved}" onclick="selectStaff(this)">${saved}</button>`;
+            } else {
+                container.innerHTML = '<div class="entry-empty">직원 목록이 없습니다.</div>';
+            }
+            return;
+        }
+        container.innerHTML = visible.map(s => `<button class="staff-btn ${s.name === saved ? 'selected' : ''}" data-name="${s.name}" onclick="selectStaff(this)">${s.name}</button>`).join('');
+    } catch (err) {
+        if (saved) {
+            container.innerHTML = `<button class="staff-btn selected" data-name="${saved}" onclick="selectStaff(this)">${saved}</button>`;
+        } else {
+            container.innerHTML = '<div class="entry-empty">직원 목록을 불러오지 못했습니다.</div>';
+        }
+    }
 }
 
 function selectStaff(btn) {
