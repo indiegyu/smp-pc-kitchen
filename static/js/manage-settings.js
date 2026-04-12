@@ -49,12 +49,25 @@
       if(!wrap) return;
       wrap.innerHTML = '<div style="padding:8px;color:var(--text-secondary)">로딩 중...</div>';
       const today = new Date().toISOString().split('T')[0];
-      const [cats, dayItems, nightItems, prMap] = await Promise.all([
+      const [catsRes, dayItems, nightItems, prMap] = await Promise.all([
         ajaxApi('/api/checklist/priority-categories'),
         ajaxApi(`/api/checklist/day?date=${today}`),
         ajaxApi(`/api/checklist/night?date=${today}`),
         ajaxApi('/api/checklist/priorities'),
       ]);
+      let cats = catsRes || [];
+      // 기본 레이블을 운영 페이지와 동일하게 폴백 (서버에 카테고리 파일이 없을 때 사용)
+      const DEFAULT_PRIO_TITLES = {
+        1: '우선순위 1 (Top Priority)',
+        2: '우선순위 2 (주방 정리)',
+        3: '우선순위 3 (업장 청소)',
+        4: '우선순위 4 (재고 채우기)',
+        5: '우선순위 5 (전문 작업)',
+        'handoff': '오전 인수인계전 체크사항'
+      };
+      if (!cats || cats.length === 0) {
+        cats = [1,2,3,4,5].map((id, idx) => ({ id: id, name: DEFAULT_PRIO_TITLES[id], sort_order: idx }));
+      }
       const allItems = (dayItems || []).concat(nightItems || []);
       const catMap = {};
       (cats || []).forEach(c => { catMap[String(c.id)] = { meta: c, items: [] }; });
