@@ -1,0 +1,50 @@
+ * Serving Flask app 'app'
+ * Debug mode: on
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.0.83:5001
+[33mPress CTRL+C to quit[0m
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 100-209-047
+127.0.0.1 - - [13/Apr/2026 21:19:12] "GET /api/checklist/priority-categories HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:19:12] "GET /api/checklist/priorities HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:19:12] "GET /api/checklist/day HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:19:12] "GET /api/checklist/night HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:27:11] "GET /manage/checklist HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:27:11] "GET /static/js/manage-settings.js HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:27:11] "GET /static/css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:27:11] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Apr/2026 21:27:11] "GET /api/checklist/day?date=2026-04-13 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:27:11] "GET /api/checklist/summary?start=2026-04-09&end=2026-04-13 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:27:11] "GET /api/checklist/priorities HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:27:11] "GET /api/checklist/priority-categories HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:28:58] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:28:58] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [13/Apr/2026 21:28:58] "GET /api/staff HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:28:59] "GET /api/staff HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:01] "GET /api/staff HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:02] "GET /api/notes/night/purchase?date=2026-04-13 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:02] "GET /api/notes/night/handoff?date=2026-04-13 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:02] "GET /api/checklist/night?date=2026-04-13 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:02] "GET /api/checklist/summary?start=2026-04-09&end=2026-04-13 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:13] "POST /api/admin/login HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:13] "[32mGET /manage HTTP/1.1[0m" 302 -
+127.0.0.1 - - [13/Apr/2026 21:29:13] "GET /manage/checklist HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:13] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [13/Apr/2026 21:29:13] "[36mGET /static/js/manage-settings.js HTTP/1.1[0m" 304 -
+127.0.0.1 - - [13/Apr/2026 21:29:13] "GET /api/checklist/summary?start=2026-04-09&end=2026-04-13 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:13] "GET /api/checklist/day?date=2026-04-13 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:13] "GET /api/checklist/priorities HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:13] "GET /api/checklist/priority-categories HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:16] "GET /manage/settings HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:16] "[36mGET /static/js/manage-settings.js HTTP/1.1[0m" 304 -
+127.0.0.1 - - [13/Apr/2026 21:29:16] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [13/Apr/2026 21:29:16] "GET /api/staff HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:16] "GET /api/checklist/priority-categories HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:16] "GET /api/checklist/priorities HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:16] "GET /api/inventory/categories HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:16] "GET /api/checklist/day?date=2026-04-13 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:16] "GET /api/checklist/night?date=2026-04-13 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 21:29:16] "GET /api/inventory HTTP/1.1" 200 -

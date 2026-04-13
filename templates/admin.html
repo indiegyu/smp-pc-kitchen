@@ -153,6 +153,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/inventory-shared.js"></script>
 <script>
 /* Safe element helpers */
 function byId(id){ return document.getElementById(id); }
@@ -461,119 +462,6 @@ async function loadDetail(shift) {
 }
 
 /* Inventory helpers (only used when inventory view active) */
-async function loadLowStock() {
-    if (!exists('lowStockBody')) return;
-    const items = await api('/api/inventory/low-stock');
-    const badge = byId('lowStockBadge');
-    if (badge) badge.textContent = (items && items.length) ? items.length : 0;
-    const el = byId('lowStockBody');
-    if (!el) return;
-    if (!items || items.length === 0) {
-        el.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">부족한 재고가 없습니다</div>';
-    } else {
-        // group by category name
-        const byCat = {};
-        items.forEach(i => {
-            const cat = i.category || '미분류';
-            if (!byCat[cat]) byCat[cat] = [];
-            byCat[cat].push(i);
-        });
-
-        const catNames = Object.keys(byCat);
-        let html = '<div class="inventory-status-card shortage-card">';
-        catNames.forEach((name, idx) => {
-            const key = encodeURIComponent(name);
-            let stored = null;
-            try { stored = localStorage.getItem('shortage_cat_collapsed_' + key); } catch (e) { stored = null; }
-            const isCollapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
-            html += `<div class="inventory-category shortage-cat" data-cat-key="${key}">`;
-            html += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${name}</strong><span class="badge badge-count">${byCat[name].length}</span><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
-            html += `<div class="inventory-cat-body ${isCollapsed ? 'collapsed' : ''}"><ul class="inventory-items">`;
-            byCat[name].forEach(it => {
-                html += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
-            });
-            html += `</ul></div></div>`;
-        });
-        html += '</div>';
-        el.innerHTML = html;
-
-        // attach handlers for category toggles
-        el.querySelectorAll('.inventory-cat-header').forEach(h => {
-            const key = h.dataset.catKey;
-            h.addEventListener('click', () => {
-                const body = h.nextElementSibling;
-                if (!body) return;
-                const collapsed = body.classList.toggle('collapsed');
-                h.setAttribute('aria-expanded', (!collapsed).toString());
-                const arrow = h.querySelector('.toggle-arrow');
-                if (arrow) arrow.classList.toggle('collapsed', collapsed);
-                try { localStorage.setItem('shortage_cat_collapsed_' + key, collapsed ? '1' : '0'); } catch (e) {}
-            });
-            h.addEventListener('keydown', e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    h.click();
-                }
-            });
-        });
-    }
-
-    // also load full inventory into #inventoryStatus with per-category folding
-    try {
-        const inv = await api('/api/inventory') || [];
-        const statusEl = byId('inventoryStatus');
-        if (!statusEl) return;
-        if (!inv.length) {
-            statusEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">재고가 없습니다</div>';
-            return;
-        }
-        let invHtml = '<div class="inventory-status-card">';
-        inv.forEach((cat, idx) => {
-            const key = encodeURIComponent(cat.name || String(idx));
-            let stored = null;
-            try { stored = localStorage.getItem('inventory_cat_collapsed_' + key); } catch (e) { stored = null; }
-            const isCollapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
-            invHtml += `<div class="inventory-category" data-cat-key="${key}">`;
-            invHtml += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${cat.name}</strong><span class="badge badge-count">${(cat.items || []).length}</span><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
-            invHtml += `<div class="inventory-cat-body ${isCollapsed ? 'collapsed' : ''}">`;
-            if (cat.items && cat.items.length) {
-                invHtml += '<ul class="inventory-items">';
-                cat.items.forEach(it => {
-                    invHtml += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
-                });
-                invHtml += '</ul>';
-            } else {
-                invHtml += '<div class="inventory-empty">품목 없음</div>';
-            }
-            invHtml += '</div></div>';
-        });
-        invHtml += '</div>';
-        statusEl.innerHTML = invHtml;
-
-        // attach handlers for inventory categories
-        statusEl.querySelectorAll('.inventory-cat-header').forEach(h => {
-            const key = h.dataset.catKey;
-            h.addEventListener('click', () => {
-                const body = h.nextElementSibling;
-                if (!body) return;
-                const collapsed = body.classList.toggle('collapsed');
-                h.setAttribute('aria-expanded', (!collapsed).toString());
-                const arrow = h.querySelector('.toggle-arrow');
-                if (arrow) arrow.classList.toggle('collapsed', collapsed);
-                try { localStorage.setItem('inventory_cat_collapsed_' + key, collapsed ? '1' : '0'); } catch (e) {}
-            });
-            h.addEventListener('keydown', e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    h.click();
-                }
-            });
-        });
-    } catch (err) {
-        const statusEl = byId('inventoryStatus');
-        if (statusEl) statusEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">불러오기 실패</div>';
-    }
-}
 
 async function loadCategories() {
     if (!exists('addItemCat') && !exists('catList') && !exists('itemEditCat') && !exists('invMgmtCatPills')) return;
