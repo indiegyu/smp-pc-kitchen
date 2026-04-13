@@ -15,18 +15,7 @@
     <div class="staff-buttons" id="staffButtons"></div>
 </div>
 
-<div id="lowStockAlert"></div>
-
-<!-- Combobox search: type or pick from dropdown -->
-<div class="search-bar">
-    <input type="text" id="searchInput" list="itemList" placeholder="품목 검색 (입력 또는 선택)..." oninput="onSearch()">
-    <datalist id="itemList"></datalist>
-</div>
-
-<!-- Category quick-nav pills (wrap) -->
-<div class="cat-pills" id="catPills"></div>
-
-<div id="inventoryContainer"></div>
+{% include "_inventory_fragment.html" %}
 
 <!-- History Modal -->
 <div class="modal-overlay" id="historyModal">

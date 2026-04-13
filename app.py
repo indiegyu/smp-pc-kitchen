@@ -4,6 +4,19 @@ from models import db, Staff, ChecklistItem, ChecklistLog, DailyNote, \
 from datetime import datetime, date, timedelta
 import os
 import json
+from zoneinfo import ZoneInfo
+
+KST = ZoneInfo("Asia/Seoul")
+def fmt_kst(dt, fmt='%m/%d %H:%M'):
+    if not dt:
+        return None
+    try:
+        return dt.astimezone(KST).strftime(fmt)
+    except Exception:
+        try:
+            return dt.strftime(fmt)
+        except Exception:
+            return None
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -98,7 +111,7 @@ def get_checklist(shift):
             'name': item.name,
             'completed': log.completed if log else False,
             'completed_by': log.completed_by if log else None,
-            'completed_at': log.completed_at.strftime('%H:%M') if log and log.completed_at else None,
+            'completed_at': fmt_kst(log.completed_at, '%H:%M') if log and log.completed_at else None,
             'priority': priority,
         })
     return jsonify(result)
@@ -399,7 +412,7 @@ def get_note(shift, note_type):
     return jsonify({
         'content': note.content if note else '',
         'updated_by': note.updated_by if note else None,
-        'updated_at': note.updated_at.strftime('%H:%M') if note and note.updated_at else None,
+        'updated_at': fmt_kst(note.updated_at, '%H:%M') if note and note.updated_at else None,
     })
 
 
@@ -444,7 +457,7 @@ def get_inventory():
                 'min_threshold': item.min_threshold,
                 'location': item.location,
                 'low_stock': item.quantity <= item.min_threshold,
-                'updated_at': item.updated_at.strftime('%m/%d %H:%M') if item.updated_at else None,
+                'updated_at': fmt_kst(item.updated_at, '%m/%d %H:%M') if item.updated_at else None,
                 'updated_by': item.updated_by,
             } for item in items]
         })
@@ -561,7 +574,7 @@ def get_history(item_id):
         'type': tx.type,
         'quantity': tx.quantity,
         'note': tx.note,
-        'created_at': tx.created_at.strftime('%m/%d %H:%M') if tx.created_at else None,
+        'created_at': fmt_kst(tx.created_at, '%m/%d %H:%M') if tx.created_at else None,
         'created_by': tx.created_by,
     } for tx in txs])
 
@@ -747,7 +760,7 @@ def shortages_history():
                 'units': c.units,
                 'boxes': c.boxes,
                 'updated_by': c.updated_by,
-                'updated_at': c.updated_at.strftime('%Y-%m-%d %H:%M') if c.updated_at else None
+                'updated_at': fmt_kst(c.updated_at, '%Y-%m-%d %H:%M') if c.updated_at else None
             } for c in day_counts]
         })
         current += timedelta(days=1)

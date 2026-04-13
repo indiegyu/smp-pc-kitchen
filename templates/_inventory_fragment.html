@@ -1,0 +1,21 @@
+<div class="card">
+  <div class="card-header" onclick="toggleSection('lowStockBody')" role="button" tabindex="0" aria-expanded="false">
+    <span>재고 부족 항목</span>
+    <span class="badge badge-danger" id="lowStockBadge">0</span>
+    <span class="toggle-arrow">&#9660;</span>
+  </div>
+  <div class="card-body collapsed" id="lowStockBody">
+    <div style="padding:16px;color:var(--text-secondary)">로딩 중...</div>
+  </div>
+</div>
+
+<!-- Combobox search: type or pick from dropdown -->
+<div class="search-bar">
+  <input type="text" id="searchInput" list="itemList" placeholder="품목 검색 (입력 또는 선택)..." oninput="onSearch()">
+  <datalist id="itemList"></datalist>
+</div>
+
+<!-- Category quick-nav pills (wrap) -->
+<div class="cat-pills" id="catPills"></div>
+
+<div id="inventoryContainer"></div>
