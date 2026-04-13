@@ -447,6 +447,20 @@ body {
     background: var(--surface);
 }
 
+/* Shortage card — simple, high-contrast but soft visual */
+.shortage-card {
+    background: var(--danger-light);
+    border-left: 4px solid var(--danger);
+    padding: 12px;
+    border-radius: 8px;
+}
+.shortage-card .badge {
+    background: var(--surface);
+    color: var(--danger);
+    border: 1px solid rgba(0,0,0,0.04);
+    font-weight: 700;
+}
+
 .inventory-category {
     margin-bottom: 12px;
     padding-bottom: 8px;
@@ -459,6 +473,15 @@ body {
     font-weight: 700;
     font-size: 0.95rem;
 }
+
+/* Inventory category body (collapsible) */
+.inventory-cat-body {
+    transition: max-height 0.18s ease, opacity 0.12s;
+}
+.inventory-cat-body.collapsed { display: none; }
+
+/* Small spacing for toggle arrow inside category headers */
+.inventory-cat-header .toggle-arrow { margin-left: 8px; }
 
 .inventory-items {
     list-style: none;
@@ -782,14 +805,48 @@ input[type="date"]:focus { border-color: var(--primary); }
 .toast.success { background: var(--success); color: white; }
 .toast.error { background: var(--danger); color: white; }
 
-/* ─── Collapse Arrow ───────────────────────────────── */
-.collapse-arrow {
+/* ─── Collapse & Toggle Arrows (unified) ───────────────────────────── */
+.collapse-arrow, .toggle-arrow {
     transition: transform 0.2s;
     font-size: 0.75rem;
     color: var(--text-secondary);
 }
 
-.collapse-arrow.collapsed { transform: rotate(-90deg); }
+.collapse-arrow.collapsed,
+.toggle-arrow.collapsed {
+    transform: rotate(-90deg);
+}
+
+/* Ensure legacy collapsed-parent selectors remain effective */
+.inv-card-header.collapsed .toggle-arrow,
+.cat-card.collapsed .cat-card-header .toggle-arrow {
+    transform: rotate(-90deg);
+}
+
+/* inv-card-header left content layout (name + badges) */
+.inv-card-header > span:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.inv-card-header > span:first-child .badge {
+    margin-left: 8px;
+}
+
+/* Inventory category header used by shared JS */
+.inventory-cat-header {
+    padding: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+}
+.inventory-cat-header > strong { flex: 1 1 auto; min-width: 0; }
+.inventory-cat-header .badge { margin-left: 8px; }
 
 /* ─── History list ─────────────────────────────────── */
 .history-list {
@@ -1147,6 +1204,32 @@ input[type="date"]:focus { border-color: var(--primary); }
 }
 .cat-card.collapsed .cat-card-header .toggle-arrow {
     transform: rotate(-90deg);
+}
+
+/* Header badge alignment: badges used as direct children should push to the right */
+.card-header > .badge {
+    margin-left: auto;
+}
+
+/* Ensure card header's left content groups (name + inlined badges) layout cleanly */
+.card-header > *:first-child,
+.inv-card-header > span:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.card-header > *:first-child .badge,
+.inv-card-header > span:first-child .badge {
+    margin-left: 8px;
+}
+
+/* Priority header arrow support for both collapse-arrow and toggle-arrow */
+.priority-header .collapse-arrow,
+.priority-header .toggle-arrow {
+    margin-left: 8px;
+    transition: transform 0.18s ease;
 }
 
 /* ─── Low Stock Table (inventory page) ────────────── */

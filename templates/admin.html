@@ -240,7 +240,7 @@ function toggleSection(id) {
     const collapsed = el.classList.toggle('collapsed');
     const header = el.previousElementSibling;
     if (header) {
-        const arrow = header.querySelector('.collapse-arrow');
+        const arrow = header.querySelector('.toggle-arrow') || header.querySelector('.collapse-arrow');
         if (arrow) arrow.classList.toggle('collapsed', collapsed);
         if (header.setAttribute) {
             header.setAttribute('role', 'button');
@@ -652,7 +652,7 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
             header.setAttribute('role', 'button');
             header.setAttribute('tabindex', '0');
             header.setAttribute('aria-expanded', (!isCollapsed).toString());
-            const arrow = header.querySelector('.collapse-arrow');
+            const arrow = header.querySelector('.toggle-arrow') || header.querySelector('.collapse-arrow');
             if (arrow) arrow.classList.toggle('collapsed', isCollapsed);
         }
     }
