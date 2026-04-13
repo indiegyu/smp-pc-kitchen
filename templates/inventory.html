@@ -15,7 +15,14 @@
     <div class="staff-buttons" id="staffButtons"></div>
 </div>
 
-<div id="lowStockAlert"></div>
+<div class="card">
+    <div class="card-header" onclick="toggleSection('lowStockBody')" role="button" tabindex="0" aria-expanded="false">
+        <span>재고 부족 항목</span><span class="badge badge-danger" id="lowStockBadge">0</span><span class="collapse-arrow">&#9660;</span>
+    </div>
+    <div class="card-body collapsed" id="lowStockBody">
+        <div style="padding:16px;color:var(--text-secondary)">로딩 중...</div>
+    </div>
+</div>
 
 <!-- Combobox search: type or pick from dropdown -->
 <div class="search-bar">
@@ -77,6 +84,32 @@ let inventoryData = [];
 let activeCat = null;
 let collapsedCats = {}; // track collapsed state per category
 
+function toggleSection(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const collapsed = el.classList.toggle('collapsed');
+    const header = el.previousElementSibling;
+    if (header) {
+        const arrow = header.querySelector('.collapse-arrow');
+        if (arrow) arrow.classList.toggle('collapsed', collapsed);
+        if (header.setAttribute) {
+            header.setAttribute('role', 'button');
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('aria-expanded', (!collapsed).toString());
+        }
+        try { localStorage.setItem('section_collapsed_' + id, collapsed ? '1' : '0'); } catch (e) {}
+        if (!header.dataset.keydownAttached) {
+            header.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleSection(id);
+                }
+            });
+            header.dataset.keydownAttached = '1';
+        }
+    }
+}
+
 async function loadStaff() {
     const staff = await api('/api/staff');
     const container = document.getElementById('staffButtons');
@@ -112,23 +145,60 @@ async function loadInventory() {
 
 async function loadLowStock() {
     const items = await api('/api/inventory/low-stock');
-    const el = document.getElementById('lowStockAlert');
-    if (items.length === 0) { el.innerHTML = ''; return; }
-    el.innerHTML = `
-        <div class="alert-card">
-            <h3>재고 부족 항목 (${items.length}개)</h3>
-            <table class="low-stock-table">
-                <thead><tr><th>카테고리</th><th>품목</th><th>현재</th><th>최소</th></tr></thead>
-                <tbody>${items.map(i => `
-                    <tr>
-                        <td>${i.category}</td>
-                        <td style="font-weight:600">${i.name}</td>
-                        <td class="qty-danger">${i.quantity}</td>
-                        <td>${i.min_threshold}</td>
-                    </tr>
-                `).join('')}</tbody>
-            </table>
-        </div>`;
+    const badge = document.getElementById('lowStockBadge');
+    if (badge) badge.textContent = (items && items.length) ? items.length : 0;
+    const el = document.getElementById('lowStockBody');
+    if (!el) return;
+    if (!items || items.length === 0) {
+        el.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">부족한 재고가 없습니다</div>';
+        return;
+    }
+
+    // group by category name
+    const byCat = {};
+    items.forEach(i => {
+        const cat = i.category || '미분류';
+        if (!byCat[cat]) byCat[cat] = [];
+        byCat[cat].push(i);
+    });
+
+    const catNames = Object.keys(byCat);
+    let html = '<div class="inventory-status-card shortage-card">';
+    catNames.forEach((name, idx) => {
+        const key = encodeURIComponent(name);
+        let stored = null;
+        try { stored = localStorage.getItem('shortage_cat_collapsed_' + key); } catch (e) { stored = null; }
+        const isCollapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
+        html += `<div class="inventory-category shortage-cat" data-cat-key="${key}">`;
+        html += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${name}</strong><span class="badge badge-count">${byCat[name].length}</span><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
+        html += `<div class="inventory-cat-body ${isCollapsed ? 'collapsed' : ''}"><ul class="inventory-items">`;
+        byCat[name].forEach(it => {
+            html += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
+        });
+        html += `</ul></div></div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+
+    // attach handlers for category toggles
+    el.querySelectorAll('.inventory-cat-header').forEach(h => {
+        const key = h.dataset.catKey;
+        h.addEventListener('click', () => {
+            const body = h.nextElementSibling;
+            if (!body) return;
+            const collapsed = body.classList.toggle('collapsed');
+            h.setAttribute('aria-expanded', (!collapsed).toString());
+            const arrow = h.querySelector('.toggle-arrow');
+            if (arrow) arrow.classList.toggle('collapsed', collapsed);
+            try { localStorage.setItem('shortage_cat_collapsed_' + key, collapsed ? '1' : '0'); } catch (e) {}
+        });
+        h.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                h.click();
+            }
+        });
+    });
 }
 
 function renderCatPills() {
