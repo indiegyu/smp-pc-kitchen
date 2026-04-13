@@ -52,6 +52,15 @@
     </div>
 </div>
 
+<div class="card">
+    <div class="card-header">
+        <span>재고 현황</span>
+    </div>
+    <div class="card-body" id="inventoryStatus" style="padding:16px">
+        <div style="padding:16px;color:var(--text-secondary)">로딩 중...</div>
+    </div>
+</div>
+
 
 {% endif %}
 
@@ -89,6 +98,10 @@
         <span>재고 항목 관리</span><span class="collapse-arrow">&#9660;</span>
     </div>
     <div class="card-body collapsed" id="inventoryMgmt" style="padding:12px">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <input type="text" id="newCatName" placeholder="새 카테고리명" onkeydown="if(event.key==='Enter')addCategory()" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px">
+            <button class="btn btn-primary btn-sm" onclick="addCategory()">추가</button>
+        </div>
         <div id="inventoryMgmtContainer"></div>
     </div>
 </div>
@@ -436,15 +449,45 @@ async function loadLowStock() {
     byId('lowStockBadge').textContent = items.length;
     if (items.length === 0) {
         byId('lowStockBody').innerHTML = '<div style="padding:16px;color:var(--text-secondary)">부족한 재고가 없습니다</div>';
-        return;
+    } else {
+        byId('lowStockBody').innerHTML = `
+            <table class="summary-table">
+                <thead><tr><th>카테고리</th><th>품목</th><th>현재</th><th>최소</th></tr></thead>
+                <tbody>${items.map(i => `
+                    <tr class="low-row"><td>${i.category}</td><td style="font-weight:600">${i.name}</td><td style="color:var(--danger);font-weight:700">${i.quantity}</td><td>${i.min_threshold}</td></tr>
+                `).join('')}</tbody>
+            </table>`;
     }
-    byId('lowStockBody').innerHTML = `
-        <table class="summary-table">
-            <thead><tr><th>카테고리</th><th>품목</th><th>현재</th><th>최소</th></tr></thead>
-            <tbody>${items.map(i => `
-                <tr class="low-row"><td>${i.category}</td><td style="font-weight:600">${i.name}</td><td style="color:var(--danger);font-weight:700">${i.quantity}</td><td>${i.min_threshold}</td></tr>
-            `).join('')}</tbody>
-        </table>`;
+
+    // also load full inventory into #inventoryStatus if present
+    try {
+        const inv = await api('/api/inventory') || [];
+        const statusEl = byId('inventoryStatus');
+        if (!statusEl) return;
+        if (!inv.length) {
+            statusEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">재고가 없습니다</div>';
+            return;
+        }
+        let invHtml = '<div style="border:1px solid var(--border);border-radius:8px;padding:8px">';
+        inv.forEach(cat => {
+            invHtml += `<div style="margin-bottom:12px"><strong>${cat.name}</strong>`;
+            if (cat.items && cat.items.length) {
+                invHtml += '<ul style="list-style:none;padding:6px 0;margin:0">';
+                cat.items.forEach(it => {
+                    invHtml += `<li style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border)"><span>${it.name}</span><span>${it.quantity}</span></li>`;
+                });
+                invHtml += '</ul>';
+            } else {
+                invHtml += '<div style="padding:8px;color:var(--text-secondary)">품목 없음</div>';
+            }
+            invHtml += '</div>';
+        });
+        invHtml += '</div>';
+        statusEl.innerHTML = invHtml;
+    } catch (err) {
+        const statusEl = byId('inventoryStatus');
+        if (statusEl) statusEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">불러오기 실패</div>';
+    }
 }
 
 async function loadCategories() {
