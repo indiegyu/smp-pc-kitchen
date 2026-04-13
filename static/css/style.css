@@ -1287,22 +1287,39 @@ input[type="date"]:focus { border-color: var(--primary); }
     box-shadow: none !important;
 }
 
-/* reduce spacing between categories inside status card */
+/* tighten spacing between categories inside status card */
 .inventory-status-card .inventory-category + .inventory-category {
     border-top: none !important;
-    margin-top: 4px !important;
-    padding-top: 4px !important;
+    margin-top: 2px !important;
+    padding-top: 2px !important;
 }
 
-/* make category headers visually light and compact inside lowStockBody,
-   and hide the count badge for shortage categories */
+/* make category headers visually light and compact inside lowStockBody */
 #lowStockBody .inventory-cat-header {
     background: transparent !important;
     border-top: none !important;
     border-bottom: none !important;
-    padding: 8px 10px !important;
+    padding: 6px 8px !important;
 }
-#lowStockBody .inventory-cat-header .badge.badge-count { display: none !important; }
+
+/* general: hide inventory count badges across inventory UI */
+.inv-card-header .badge.badge-count,
+.inventory-cat-header .badge.badge-count,
+.cat-card-header .badge.badge-count,
+.inventory-status-card .badge.badge-count,
+#inventoryContainer .badge.badge-count,
+#lowStockBody .inventory-cat-header .badge.badge-count,
+#cat-1 .inv-card-header .badge.badge-count {
+    display: none !important;
+}
+
+/* shortage category visual treatment */
+.inventory-category.shortage-cat,
+#lowStockBody .inventory-category.shortage-cat {
+    background: rgba(255,244,230,0.95) !important;
+    border-radius: 6px !important;
+    padding: 6px !important;
+}
 
 /* Inventory items: white background and thin dark separator */
 .inventory-items .inventory-item,
@@ -1314,9 +1331,6 @@ input[type="date"]:focus { border-color: var(--primary); }
 }
 .inventory-items .inventory-item:last-child,
 .inv-item:last-child { border-bottom: none !important; }
-
-/* hide item-count badge for specific category card (#cat-1) as requested */
-#cat-1 .inv-card-header .badge.badge-count { display: none !important; }
 
 /* ─── Admin Item Management ───────────────────────── */
 .admin-item-row {

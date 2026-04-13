@@ -44,15 +44,6 @@
 {# --- 재고 관련 (인벤토리) --- #}
 {% if active == 'inventory' %}
 {% include "_inventory_fragment.html" %}
-
-<div class="card">
-    <div class="card-header" onclick="toggleSection('inventoryStatus')" role="button" tabindex="0" aria-expanded="false">
-        <span>재고 현황</span><span class="collapse-arrow">&#9660;</span>
-    </div>
-    <div class="card-body collapsed" id="inventoryStatus" style="padding:16px">
-        <div style="padding:16px;color:var(--text-secondary)">로딩 중...</div>
-    </div>
-</div>
 {% endif %}
 
 {# --- 설정 (직원관리, 편집 등) --- #}
