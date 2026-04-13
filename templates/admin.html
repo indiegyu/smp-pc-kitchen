@@ -44,6 +44,15 @@
 {# --- 재고 관련 (인벤토리) --- #}
 {% if active == 'inventory' %}
 {% include "_inventory_fragment.html" %}
+
+<div class="card">
+    <div class="card-header" onclick="toggleSection('inventoryStatus')" role="button" tabindex="0" aria-expanded="false">
+        <span>재고 현황</span><span class="collapse-arrow">&#9660;</span>
+    </div>
+    <div class="card-body collapsed" id="inventoryStatus" style="padding:16px">
+        <div style="padding:16px;color:var(--text-secondary)">로딩 중...</div>
+    </div>
+</div>
 {% endif %}
 
 {# --- 설정 (직원관리, 편집 등) --- #}
@@ -142,15 +151,18 @@ function byId(id){ return document.getElementById(id); }
 function exists(id){ return !!byId(id); }
 
 function getResetIsoDate() {
-    const now = new Date();
-    const threshold = new Date(now);
-    threshold.setHours(4,0,0,0);
-    if (now < threshold) {
-        const d = new Date(now);
+    // compute "today" in Korea Standard Time (KST) and apply 04:00 reset
+    const nowKst = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const threshold = new Date(nowKst.getFullYear(), nowKst.getMonth(), nowKst.getDate(), 4, 0, 0, 0);
+    let d = nowKst;
+    if (nowKst < threshold) {
+        d = new Date(nowKst);
         d.setDate(d.getDate() - 1);
-        return d.toISOString().split('T')[0];
     }
-    return now.toISOString().split('T')[0];
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
 }
 let currentDetailShift = 'day';
 const viewDate = byId('viewDate');

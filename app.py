@@ -94,7 +94,7 @@ def remove_staff(staff_id):
 
 @app.route('/api/checklist/<shift>')
 def get_checklist(shift):
-    target_date = request.args.get('date', date.today().isoformat())
+    target_date = request.args.get('date', datetime.now(KST).date().isoformat())
     target_date = date.fromisoformat(target_date)
 
     items = ChecklistItem.query.filter_by(shift=shift, active=True)\
@@ -123,7 +123,7 @@ def check_item():
     item_id = data['item_id']
     completed = data['completed']
     staff = data.get('staff_name', '')
-    target_date = date.fromisoformat(data.get('date', date.today().isoformat()))
+    target_date = date.fromisoformat(data.get('date', datetime.now(KST).date().isoformat()))
 
     log = ChecklistLog.query.filter_by(item_id=item_id, date=target_date).first()
     if log:
@@ -143,8 +143,8 @@ def check_item():
 
 @app.route('/api/checklist/summary')
 def checklist_summary():
-    start = request.args.get('start', (date.today() - timedelta(days=7)).isoformat())
-    end = request.args.get('end', date.today().isoformat())
+    start = request.args.get('start', (datetime.now(KST).date() - timedelta(days=7)).isoformat())
+    end = request.args.get('end', datetime.now(KST).date().isoformat())
     start_date = date.fromisoformat(start)
     end_date = date.fromisoformat(end)
 
@@ -406,7 +406,7 @@ def reorder_inventory_items():
 
 @app.route('/api/notes/<shift>/<note_type>')
 def get_note(shift, note_type):
-    target_date = request.args.get('date', date.today().isoformat())
+    target_date = request.args.get('date', datetime.now(KST).date().isoformat())
     target_date = date.fromisoformat(target_date)
     note = DailyNote.query.filter_by(date=target_date, shift=shift, type=note_type).first()
     return jsonify({
@@ -419,7 +419,7 @@ def get_note(shift, note_type):
 @app.route('/api/notes/<shift>/<note_type>', methods=['POST'])
 def save_note(shift, note_type):
     data = request.json
-    target_date = date.fromisoformat(data.get('date', date.today().isoformat()))
+    target_date = date.fromisoformat(data.get('date', datetime.now(KST).date().isoformat()))
     content = data.get('content', '')
     staff = data.get('staff_name', '')
 
@@ -684,7 +684,7 @@ def manage_shortages():
 
 @app.route('/api/shortages')
 def get_shortages():
-    target_date = request.args.get('date', date.today().isoformat())
+    target_date = request.args.get('date', datetime.now(KST).date().isoformat())
     target_date = date.fromisoformat(target_date)
     items = ShortageItem.query.order_by(ShortageItem.sort_order).all()
     result = []
@@ -734,7 +734,7 @@ def update_shortage():
 
 @app.route('/api/shortages', methods=['DELETE'])
 def delete_shortages():
-    target_date = date.fromisoformat(request.args.get('date', date.today().isoformat()))
+    target_date = date.fromisoformat(request.args.get('date', datetime.now(KST).date().isoformat()))
     data = request.json or {}
     password = data.get('password', '')
     expected = os.environ.get('ADMIN_PASSWORD')
@@ -747,7 +747,7 @@ def delete_shortages():
 @app.route('/api/shortages/history')
 def shortages_history():
     days = int(request.args.get('days', 7))
-    end = date.today()
+    end = datetime.now(KST).date()
     start = end - timedelta(days=days-1)
     results = []
     current = start

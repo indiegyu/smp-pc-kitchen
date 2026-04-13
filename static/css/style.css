@@ -440,10 +440,10 @@ body {
 .inventory-status-card {
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 12px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     background: var(--surface);
 }
 
@@ -451,7 +451,7 @@ body {
 .shortage-card {
     background: var(--danger-light);
     border-left: 4px solid var(--danger);
-    padding: 12px;
+    padding: 10px;
     border-radius: 8px;
 }
 .shortage-card .badge {
@@ -460,11 +460,16 @@ body {
     border: 1px solid rgba(0,0,0,0.04);
     font-weight: 700;
 }
+.inventory-status-card .inventory-category + .inventory-category {
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    margin-top: 8px;
+}
 
 .inventory-category {
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px dashed var(--border);
+    margin-bottom: 8px;
+    padding: 0;
+    border-bottom: none;
 }
 
 .inventory-category strong {
@@ -492,10 +497,11 @@ body {
 .inventory-item {
     display: flex;
     justify-content: space-between;
-    padding: 8px 6px;
-    border-bottom: 1px dashed var(--border);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
     align-items: center;
     gap: 12px;
+    background: transparent;
 }
 
 .inventory-item:last-child {
@@ -524,10 +530,10 @@ body {
 .inv-item {
     display: flex;
     align-items: center;
-    padding: 10px 16px;
+    padding: 6px 12px;
     border-bottom: 1px solid var(--border);
-    gap: 10px;
-    min-height: 48px;
+    gap: 8px;
+    min-height: 40px;
 }
 
 .inv-item:last-child { border-bottom: none; }
@@ -837,13 +843,17 @@ input[type="date"]:focus { border-color: var(--primary); }
 
 /* Inventory category header used by shared JS */
 .inventory-cat-header {
-    padding: 8px 0;
+    padding: 6px 10px;
     display: flex;
     align-items: center;
     gap: 8px;
     justify-content: space-between;
     cursor: pointer;
     user-select: none;
+    background: rgba(0,0,0,0.02);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    border-radius: 6px;
 }
 .inventory-cat-header > strong { flex: 1 1 auto; min-width: 0; }
 .inventory-cat-header .badge { margin-left: 8px; }
