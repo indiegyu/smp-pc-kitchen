@@ -44,19 +44,19 @@
 {# --- 재고 관련 (인벤토리) --- #}
 {% if active == 'inventory' %}
 <div class="card">
-    <div class="card-header">
-        <span>재고 부족 현황</span><span class="badge badge-danger" id="lowStockBadge">0</span>
+    <div class="card-header" onclick="toggleSection('lowStockBody')" role="button" tabindex="0" aria-expanded="false">
+        <span>재고 부족 현황</span><span class="badge badge-danger" id="lowStockBadge">0</span><span class="collapse-arrow">&#9660;</span>
     </div>
-    <div class="card-body" id="lowStockBody">
+    <div class="card-body collapsed" id="lowStockBody">
         <div style="padding:16px;color:var(--text-secondary)">로딩 중...</div>
     </div>
 </div>
 
 <div class="card">
-    <div class="card-header">
-        <span>재고 현황</span>
+    <div class="card-header" onclick="toggleSection('inventoryStatus')" role="button" tabindex="0" aria-expanded="false">
+        <span>재고 현황</span><span class="collapse-arrow">&#9660;</span>
     </div>
-    <div class="card-body" id="inventoryStatus" style="padding:16px">
+    <div class="card-body collapsed" id="inventoryStatus" style="padding:16px">
         <div style="padding:16px;color:var(--text-secondary)">로딩 중...</div>
     </div>
 </div>
@@ -236,11 +236,27 @@ function togglePriorityBox(key, el) {
 function toggleSection(id) {
     const el = byId(id);
     if (!el) return;
-    el.classList.toggle('collapsed');
+    const collapsed = el.classList.toggle('collapsed');
     const header = el.previousElementSibling;
     if (header) {
         const arrow = header.querySelector('.collapse-arrow');
-        if (arrow) arrow.classList.toggle('collapsed');
+        if (arrow) arrow.classList.toggle('collapsed', collapsed);
+        if (header.setAttribute) {
+            header.setAttribute('role', 'button');
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('aria-expanded', (!collapsed).toString());
+        }
+        // persist section collapsed state
+        try { localStorage.setItem('section_collapsed_' + id, collapsed ? '1' : '0'); } catch (e) {}
+        if (!header.dataset.keydownAttached) {
+            header.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleSection(id);
+                }
+            });
+            header.dataset.keydownAttached = '1';
+        }
     }
 }
 
@@ -387,11 +403,12 @@ async function loadDetail(shift) {
         };
         const icons = {mc1: '🧹', mc2: '🧽', closing: '🏁'};
         let html = '';
-        ['mc1','mc2','closing'].forEach(key => {
+        ['mc1','mc2','closing'].forEach((key, idx) => {
             const list = enriched.filter(i => (i.night_group || mapNightGroup(i.name)) === key);
-            const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
+            const stored = localStorage.getItem('prio_collapsed_' + key);
+            const collapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
             html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
-            html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+            html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" role="button" tabindex="0" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
             html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
             if (!list.length) {
                 html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
@@ -420,11 +437,12 @@ async function loadDetail(shift) {
     };
     const icons = {1: '⚠️', 2: '🧼', 3: '🧹', 4: '📦', 5: '🔧', 'handoff': '🔁'};
     let html = '';
-    [1,2,3,4,5,'handoff'].forEach(key => {
+    [1,2,3,4,5,'handoff'].forEach((key, idx) => {
         const list = enriched.filter(i => i.priority == key);
-        const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
+        const stored = localStorage.getItem('prio_collapsed_' + key);
+        const collapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
         html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
-        html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+        html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" role="button" tabindex="0" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
         html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
         if (!list.length) {
             html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
@@ -468,17 +486,17 @@ async function loadLowStock() {
             statusEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">재고가 없습니다</div>';
             return;
         }
-        let invHtml = '<div style="border:1px solid var(--border);border-radius:8px;padding:8px">';
+        let invHtml = '<div class="inventory-status-card">';
         inv.forEach(cat => {
-            invHtml += `<div style="margin-bottom:12px"><strong>${cat.name}</strong>`;
+            invHtml += `<div class="inventory-category"><strong>${cat.name}</strong>`;
             if (cat.items && cat.items.length) {
-                invHtml += '<ul style="list-style:none;padding:6px 0;margin:0">';
+                invHtml += '<ul class="inventory-items">';
                 cat.items.forEach(it => {
-                    invHtml += `<li style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border)"><span>${it.name}</span><span>${it.quantity}</span></li>`;
+                    invHtml += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
                 });
                 invHtml += '</ul>';
             } else {
-                invHtml += '<div style="padding:8px;color:var(--text-secondary)">품목 없음</div>';
+                invHtml += '<div class="inventory-empty">품목 없음</div>';
             }
             invHtml += '</div>';
         });
@@ -663,6 +681,29 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 /* Init based on active view (only call functions needed by that view) */
 (function initAdmin() {
     const adminActive = "{{ active or 'checklist' }}";
+
+    // restore section collapsed states for known sections (default: collapsed)
+    function restoreSectionState(id) {
+        const el = byId(id);
+        if (!el) return;
+        let stored = null;
+        try { stored = localStorage.getItem('section_collapsed_' + id); } catch (e) { stored = null; }
+        let isCollapsed = true;
+        if (stored === '1') isCollapsed = true;
+        else if (stored === '0') isCollapsed = false;
+        if (isCollapsed) el.classList.add('collapsed'); else el.classList.remove('collapsed');
+        const header = el.previousElementSibling;
+        if (header && header.setAttribute) {
+            header.setAttribute('role', 'button');
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('aria-expanded', (!isCollapsed).toString());
+            const arrow = header.querySelector('.collapse-arrow');
+            if (arrow) arrow.classList.toggle('collapsed', isCollapsed);
+        }
+    }
+    restoreSectionState('lowStockBody');
+    restoreSectionState('inventoryStatus');
+
     if (adminActive === 'checklist') {
         loadSummary();
         loadDetail('day');

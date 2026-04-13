@@ -133,11 +133,16 @@
 
       // delegated handlers similar to inventory
       const root = wrap;
-      // restore collapsed state for prio categories
-      root.querySelectorAll('.prio-cat').forEach(card => {
+      // restore collapsed state for prio categories — default collapsed, first open
+      Array.from(root.querySelectorAll('.prio-cat')).forEach((card, idx) => {
         const id = card.dataset.id;
-        const isCollapsed = localStorage.getItem('cat_collapsed_' + id) === '1';
-        if (isCollapsed) card.classList.add('collapsed');
+        const stored = localStorage.getItem('cat_collapsed_' + id);
+        let isCollapsed;
+        if (stored === '1') isCollapsed = true;
+        else if (stored === '0') isCollapsed = false;
+        else isCollapsed = true; // default: collapsed
+        if (idx === 0) isCollapsed = false; // keep first card open by default
+        if (isCollapsed) card.classList.add('collapsed'); else card.classList.remove('collapsed');
         const header = card.querySelector('.cat-card-header');
         if (header) {
           header.setAttribute('tabindex','0');
@@ -145,7 +150,10 @@
           header.setAttribute('aria-expanded', (!isCollapsed).toString());
         }
         const arrow = card.querySelector('.toggle-arrow');
-        if (arrow) arrow.setAttribute('aria-hidden','true');
+        if (arrow) {
+          arrow.setAttribute('aria-hidden','true');
+          arrow.classList.toggle('collapsed', isCollapsed);
+        }
       });
       root.querySelectorAll('.cat-edit-btn').forEach(btn=>{
         btn.addEventListener('click', async e=>{
@@ -479,11 +487,16 @@
     // handlers
     const root = byId('inventoryMgmtContainer');
 
-    // restore collapsed state for categories
-    root.querySelectorAll('.cat-card').forEach(card => {
+    // restore collapsed state for categories — default collapsed, first open
+    Array.from(root.querySelectorAll('.cat-card')).forEach((card, idx) => {
       const id = card.dataset.id;
-      const isCollapsed = localStorage.getItem('cat_collapsed_' + id) === '1';
-      if (isCollapsed) card.classList.add('collapsed');
+      const stored = localStorage.getItem('cat_collapsed_' + id);
+      let isCollapsed;
+      if (stored === '1') isCollapsed = true;
+      else if (stored === '0') isCollapsed = false;
+      else isCollapsed = true; // default: collapsed
+      if (idx === 0) isCollapsed = false; // keep first card open by default
+      if (isCollapsed) card.classList.add('collapsed'); else card.classList.remove('collapsed');
       const header = card.querySelector('.cat-card-header');
       if (header) {
         header.setAttribute('tabindex', '0');
@@ -491,7 +504,10 @@
         header.setAttribute('aria-expanded', (!isCollapsed).toString());
       }
       const arrow = card.querySelector('.toggle-arrow');
-      if (arrow) arrow.setAttribute('aria-hidden', 'true');
+      if (arrow) {
+        arrow.setAttribute('aria-hidden', 'true');
+        arrow.classList.toggle('collapsed', isCollapsed);
+      }
     });
 
     root.querySelectorAll('.cat-edit-btn').forEach(btn=>{

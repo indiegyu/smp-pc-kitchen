@@ -437,6 +437,67 @@ body {
 /* ─── Inventory Table ──────────────────────────────── */
 .inv-list { list-style: none; }
 
+.inventory-status-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--surface);
+}
+
+.inventory-category {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border);
+}
+
+.inventory-category strong {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.inventory-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.inventory-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 6px;
+    border-bottom: 1px dashed var(--border);
+    align-items: center;
+    gap: 12px;
+}
+
+.inventory-item:last-child {
+    border-bottom: none;
+}
+
+.inventory-item-name {
+    flex: 1;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.inventory-item-qty {
+    font-weight: 700;
+    color: var(--text-secondary);
+    min-width: 40px;
+    text-align: right;
+}
+
+.inventory-empty {
+    padding: 8px;
+    color: var(--text-secondary);
+    background: transparent;
+}
+
 .inv-item {
     display: flex;
     align-items: center;
