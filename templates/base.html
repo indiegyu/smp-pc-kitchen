@@ -158,6 +158,25 @@
         window.addEventListener('scroll', updateFab, { passive: true });
         updateFab();
     </script>
+    <script>
+        // server_today (ISO yyyy-mm-dd) injected by server (KST, reset hour 04:00)
+        window.server_today = '{{ server_today }}';
+        // helper: prefer server_today; fallback to client KST calculation if missing
+        function client_get_reset_iso_date() {
+            if (window.server_today) return window.server_today;
+            const nowKst = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+            const threshold = new Date(nowKst.getFullYear(), nowKst.getMonth(), nowKst.getDate(), 4, 0, 0, 0);
+            let d = nowKst;
+            if (nowKst < threshold) {
+                d = new Date(nowKst);
+                d.setDate(d.getDate() - 1);
+            }
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${dd}`;
+        }
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

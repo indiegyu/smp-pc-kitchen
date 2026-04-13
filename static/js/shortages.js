@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', initShortages);
 
 function q(selector) { return document.querySelector(selector); }
 function qa(selector) { return Array.from(document.querySelectorAll(selector)); }
-function todayISO() { return new Date().toISOString().split('T')[0]; }
+function todayISO() { return (typeof client_get_reset_iso_date === 'function') ? client_get_reset_iso_date() : new Date().toISOString().split('T')[0]; }
 
 async function initShortages() {
     const dateEl = q('#shortageDate');

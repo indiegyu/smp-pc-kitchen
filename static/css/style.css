@@ -1269,6 +1269,55 @@ input[type="date"]:focus { border-color: var(--primary); }
     font-weight: 700;
 }
 
+/* ─── Overrides: lowStock visual fixes requested by user ───────────────── */
+#lowStockBody {
+    background: var(--surface) !important;
+    padding: 6px !important;
+}
+#lowStockBody .shortage-card {
+    background: transparent !important;
+    border-left: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+#lowStockBody .inventory-status-card {
+    background: var(--surface) !important;
+    border: none !important;
+    padding: 6px !important;
+    box-shadow: none !important;
+}
+
+/* reduce spacing between categories inside status card */
+.inventory-status-card .inventory-category + .inventory-category {
+    border-top: none !important;
+    margin-top: 4px !important;
+    padding-top: 4px !important;
+}
+
+/* make category headers visually light and compact inside lowStockBody,
+   and hide the count badge for shortage categories */
+#lowStockBody .inventory-cat-header {
+    background: transparent !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    padding: 8px 10px !important;
+}
+#lowStockBody .inventory-cat-header .badge.badge-count { display: none !important; }
+
+/* Inventory items: white background and thin dark separator */
+.inventory-items .inventory-item,
+#inventoryContainer .inventory-items .inventory-item,
+.inv-item {
+    background: var(--surface) !important;
+    border-bottom: 1px solid rgba(0,0,0,0.12) !important;
+    padding: 6px 8px !important;
+}
+.inventory-items .inventory-item:last-child,
+.inv-item:last-child { border-bottom: none !important; }
+
+/* hide item-count badge for specific category card (#cat-1) as requested */
+#cat-1 .inv-card-header .badge.badge-count { display: none !important; }
+
 /* ─── Admin Item Management ───────────────────────── */
 .admin-item-row {
     display: flex;

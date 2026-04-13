@@ -48,7 +48,7 @@
       const wrap = byId('prioCategoriesContainer');
       if(!wrap) return;
       wrap.innerHTML = '<div style="padding:8px;color:var(--text-secondary)">로딩 중...</div>';
-      const today = new Date().toISOString().split('T')[0];
+      const today = client_get_reset_iso_date();
       const [catsRes, dayItems, nightItems, prMap] = await Promise.all([
         ajaxApi('/api/checklist/priority-categories'),
         ajaxApi(`/api/checklist/day?date=${today}`),
@@ -270,10 +270,10 @@
     await renderPrioCategories();
   }
 
-  async function renderChecklistLists(){
-    const today = new Date().toISOString().split('T')[0];
-    const day = await ajaxApi(`/api/checklist/day?date=${today}`) || [];
-    const night = await ajaxApi(`/api/checklist/night?date=${today}`) || [];
+    async function renderChecklistLists(){
+      const today = client_get_reset_iso_date();
+      const day = await ajaxApi(`/api/checklist/day?date=${today}`) || [];
+      const night = await ajaxApi(`/api/checklist/night?date=${today}`) || [];
     const prMap = await ajaxApi('/api/checklist/priorities') || {};
 
     function prOptions(selected){
@@ -795,7 +795,7 @@
       const modalEl = document.getElementById('ms_checklistItemEditModal');
       modalEl.querySelector('#ms_checklistItemEditId').value = id;
       // attempt to find item name and shift by querying both shifts
-      const today = new Date().toISOString().split('T')[0];
+      const today = client_get_reset_iso_date();
       let found = null;
       try {
         const day = await ajaxApi(`/api/checklist/day?date=${today}`) || [];

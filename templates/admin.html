@@ -346,7 +346,7 @@ async function loadDetail(shift) {
     if (byId('detailNightBtn')) byId('detailNightBtn').style.background = shift === 'night' ? 'var(--primary-light)' : '';
     if (byId('detailTitle') && viewDate) byId('detailTitle').textContent = `${viewDate.value} ${shift === 'day' ? '주간' : '야간'} 체크리스트`;
 
-    const items = await api(`/api/checklist/${shift}?date=${viewDate ? viewDate.value : new Date().toISOString().split('T')[0]}`) || [];
+    const items = await api(`/api/checklist/${shift}?date=${viewDate ? viewDate.value : getResetIsoDate()}`) || [];
     const prMapRaw = await api('/api/checklist/priorities') || {};
     // normalize priorities: if server stored a numeric category id that corresponds to
     // the "인수인계" category, map it to the 'handoff' alias so rendering matches expected keys.

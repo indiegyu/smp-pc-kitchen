@@ -26,6 +26,20 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
+# Inject server_today (KST, reset hour 4) into templates and make available to client
+def get_server_today_iso():
+    now_kst = datetime.now(KST)
+    threshold = datetime(now_kst.year, now_kst.month, now_kst.day, 4, 0, 0, tzinfo=KST)
+    if now_kst < threshold:
+        d = (now_kst - timedelta(days=1)).date()
+    else:
+        d = now_kst.date()
+    return d.isoformat()
+
+@app.context_processor
+def inject_server_today():
+    return {'server_today': get_server_today_iso()}
+
 
 # ─── Pages ───────────────────────────────────────────────
 

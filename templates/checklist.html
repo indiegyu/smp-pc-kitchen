@@ -135,15 +135,18 @@ let entryResolve = null;
 const ENTRY_RESET_HOUR = 4; // 04:00 기준으로 날짜 리셋
 
 function getResetIsoDate() {
-  const now = new Date();
-  const threshold = new Date(now);
-  threshold.setHours(ENTRY_RESET_HOUR,0,0,0);
-  if (now < threshold) {
-    const d = new Date(now);
-    d.setDate(d.getDate()-1);
-    return d.toISOString().split('T')[0];
+  // compute "today" in Korea Standard Time (KST) and apply ENTRY_RESET_HOUR reset
+  const nowKst = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  const threshold = new Date(nowKst.getFullYear(), nowKst.getMonth(), nowKst.getDate(), ENTRY_RESET_HOUR, 0, 0, 0);
+  let d = nowKst;
+  if (nowKst < threshold) {
+    d = new Date(nowKst);
+    d.setDate(d.getDate() - 1);
   }
-  return now.toISOString().split('T')[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
 }
 
 const dateInput = document.getElementById('dateInput');
