@@ -323,7 +323,28 @@ async function loadDetail(shift) {
     if (byId('detailTitle') && viewDate) byId('detailTitle').textContent = `${viewDate.value} ${shift === 'day' ? '주간' : '야간'} 체크리스트`;
 
     const items = await api(`/api/checklist/${shift}?date=${viewDate ? viewDate.value : new Date().toISOString().split('T')[0]}`) || [];
-    const prMap = await api('/api/checklist/priorities') || {};
+    const prMapRaw = await api('/api/checklist/priorities') || {};
+    // normalize priorities: if server stored a numeric category id that corresponds to
+    // the "인수인계" category, map it to the 'handoff' alias so rendering matches expected keys.
+    let prMap = prMapRaw;
+    try {
+      const cats = await api('/api/checklist/priority-categories') || [];
+      const handoffIds = (cats || []).filter(c => /인수인계/i.test(c.name) || String(c.name).toLowerCase().includes('handoff')).map(c => String(c.id));
+      prMap = {};
+      Object.keys(prMapRaw || {}).forEach(k => {
+        const v = prMapRaw[k];
+        if (v === null || typeof v === 'undefined') { prMap[k] = v; return; }
+        if (typeof v === 'number' || (typeof v === 'string' && /^\d+$/.test(v))) {
+          const vs = String(v);
+          if (handoffIds.includes(vs)) prMap[k] = 'handoff';
+          else prMap[k] = v;
+        } else {
+          prMap[k] = v;
+        }
+      });
+    } catch (err) {
+      prMap = prMapRaw;
+    }
 
     const enriched = items.map(it => {
         const pid = String(it.id);

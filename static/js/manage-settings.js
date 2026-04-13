@@ -133,6 +133,20 @@
 
       // delegated handlers similar to inventory
       const root = wrap;
+      // restore collapsed state for prio categories
+      root.querySelectorAll('.prio-cat').forEach(card => {
+        const id = card.dataset.id;
+        const isCollapsed = localStorage.getItem('cat_collapsed_' + id) === '1';
+        if (isCollapsed) card.classList.add('collapsed');
+        const header = card.querySelector('.cat-card-header');
+        if (header) {
+          header.setAttribute('tabindex','0');
+          header.setAttribute('role','button');
+          header.setAttribute('aria-expanded', (!isCollapsed).toString());
+        }
+        const arrow = card.querySelector('.toggle-arrow');
+        if (arrow) arrow.setAttribute('aria-hidden','true');
+      });
       root.querySelectorAll('.cat-edit-btn').forEach(btn=>{
         btn.addEventListener('click', async e=>{
           const card = e.target.closest('.prio-cat');
@@ -173,6 +187,37 @@
         });
       });
 
+      // delegated toggle handlers for prio categories (click + keyboard)
+      root.addEventListener('click', function(e) {
+        const clickedCard = e.target.closest('.prio-cat');
+        if (clickedCard) {
+          const header = clickedCard.querySelector('.cat-card-header');
+          if (header && header.contains(e.target) &&
+              !e.target.closest('.cat-edit-btn') && !e.target.closest('.cat-del-btn') &&
+              !e.target.closest('.cat-drag') && !e.target.closest('.cat-move-btns')) {
+            e.stopPropagation();
+            clickedCard.classList.toggle('collapsed');
+            const collapsed = clickedCard.classList.contains('collapsed');
+            if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
+            const arrow = clickedCard.querySelector('.toggle-arrow');
+            if (arrow) arrow.setAttribute('aria-hidden','true');
+            localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0');
+            return;
+          }
+        }
+      });
+      root.addEventListener('keydown', function(e) {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('cat-card-header')) {
+          e.preventDefault();
+          const clickedCard = e.target.closest('.prio-cat');
+          if (!clickedCard) return;
+          clickedCard.classList.toggle('collapsed');
+          const collapsed = clickedCard.classList.contains('collapsed');
+          const header = clickedCard.querySelector('.cat-card-header');
+          if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
+          localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0');
+        }
+      });
       // make categories reorderable and items draggable between categories
       loadSortable(()=>{
         const cardsContainer = byId('prioCards');
@@ -437,7 +482,16 @@
     // restore collapsed state for categories
     root.querySelectorAll('.cat-card').forEach(card => {
       const id = card.dataset.id;
-      if (localStorage.getItem('cat_collapsed_' + id) === '1') card.classList.add('collapsed');
+      const isCollapsed = localStorage.getItem('cat_collapsed_' + id) === '1';
+      if (isCollapsed) card.classList.add('collapsed');
+      const header = card.querySelector('.cat-card-header');
+      if (header) {
+        header.setAttribute('tabindex', '0');
+        header.setAttribute('role', 'button');
+        header.setAttribute('aria-expanded', (!isCollapsed).toString());
+      }
+      const arrow = card.querySelector('.toggle-arrow');
+      if (arrow) arrow.setAttribute('aria-hidden', 'true');
     });
 
     root.querySelectorAll('.cat-edit-btn').forEach(btn=>{
@@ -495,7 +549,11 @@
         if (header && header.contains(e.target) && !e.target.closest('.cat-edit-btn') && !e.target.closest('.cat-del-btn') && !e.target.closest('.cat-drag') && !e.target.closest('.cat-move-btns')) {
           e.stopPropagation();
           clickedCard.classList.toggle('collapsed');
-          localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, clickedCard.classList.contains('collapsed') ? '1' : '0');
+          const collapsed = clickedCard.classList.contains('collapsed');
+          if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
+          const arrow = clickedCard.querySelector('.toggle-arrow');
+          if (arrow) arrow.setAttribute('aria-hidden', 'true');
+          localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0');
           return;
         }
       }
@@ -534,7 +592,21 @@
         showToast && showToast('품목 순서 저장됨');
       }
     });
-
+    
+    // keyboard toggle for category header
+    root.addEventListener('keydown', function(e) {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('cat-card-header')) {
+        e.preventDefault();
+        const clickedCard = e.target.closest('.cat-card');
+        if (!clickedCard) return;
+        clickedCard.classList.toggle('collapsed');
+        const header = clickedCard.querySelector('.cat-card-header');
+        const collapsed = clickedCard.classList.contains('collapsed');
+        if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
+        localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0');
+      }
+    });
+    
     loadSortable(()=>{
       // category reorder
       const cardsContainer = byId('inventoryCards');
