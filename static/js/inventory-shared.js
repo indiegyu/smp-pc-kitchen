@@ -117,7 +117,7 @@
         html += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${name}</strong><span class="badge badge-count">${byCat[name].length}</span><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
         html += `<div class="inventory-cat-body ${isCollapsed ? 'collapsed' : ''}"><ul class="inventory-items">`;
         byCat[name].forEach(it => {
-          html += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
+          html += `<li class="inventory-item low-stock"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
         });
         html += `</ul></div></div>`;
       });

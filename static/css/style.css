@@ -429,7 +429,7 @@ body {
 
 .badge-count { background: var(--primary-light); color: var(--primary); }
 .badge-warning { background: var(--warning-light); color: #b45309; }
-.badge-danger { background: var(--danger-light); color: var(--danger); }
+.badge-danger { background-color: #fff !important; color: var(--danger); border: 1px solid var(--danger); }
 
 .card-body { padding: 0; }
 .card-body.collapsed { display: none; }
@@ -468,8 +468,12 @@ body {
 
 .inventory-category {
     margin-bottom: 8px;
-    padding: 0;
+    padding: 12px;
     border-bottom: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
 }
 
 .inventory-category strong {
@@ -497,15 +501,18 @@ body {
 .inventory-item {
     display: flex;
     justify-content: space-between;
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--border);
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     align-items: center;
     gap: 12px;
-    background: transparent;
+    background: var(--surface);
+    margin-bottom: 8px;
 }
 
 .inventory-item:last-child {
     border-bottom: none;
+    margin-bottom: 0;
 }
 
 .inventory-item-name {
@@ -530,14 +537,17 @@ body {
 .inv-item {
     display: flex;
     align-items: center;
-    padding: 6px 12px;
-    border-bottom: 1px solid var(--border);
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     gap: 8px;
     min-height: 40px;
+    background: var(--surface);
+    margin-bottom: 8px;
 }
 
-.inv-item:last-child { border-bottom: none; }
-.inv-item.low-stock { background: var(--danger-light); }
+.inv-item:last-child { border-bottom: none; margin-bottom: 0; }
+.inv-item.low-stock { background: var(--danger-light); border-color: rgba(220,38,38,0.9); }
 
 .inv-name {
     flex: 1;
