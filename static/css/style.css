@@ -638,6 +638,13 @@ body {
 .qty-btn.minus { color: var(--danger); }
 .qty-btn.plus { color: var(--success); }
 
+.current-label {
+    margin-right: 6px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
 .qty-value {
     width: 40px;
     text-align: center;

@@ -115,7 +115,7 @@
        html += `<div class="inventory-cat-body"><ul class="inventory-items">`;
        byCat[name].forEach(it => {
          const shortage = (typeof it.min_threshold === 'number') ? Math.max(0, it.min_threshold - it.quantity) : 0;
-         html += `<li class="inventory-item low-stock"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">현재: ${it.quantity} / 부족: ${shortage}</span></li>`;
+         html += `<li class="inventory-item low-stock"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
        });
        html += `</ul></div></div>`;
       });
@@ -146,7 +146,7 @@
           invHtml += '<ul class="inventory-items">';
           cat.items.forEach(it => {
             const shortage = (typeof it.min_threshold === 'number') ? Math.max(0, it.min_threshold - it.quantity) : 0;
-            invHtml += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">현재: ${it.quantity} / 부족: ${shortage}</span></li>`;
+            invHtml += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
           });
           invHtml += '</ul>';
         } else {
@@ -269,8 +269,9 @@
                     ${item.location ? `<div class="inv-location">${item.location}</div>` : ''}
                   </div>
                   <div class="inv-qty">
+                    <span class="current-label">현재</span>
                     <button class="qty-btn minus" onclick="quickAdjust(${item.id}, -1, event)">-</button>
-                     <span class="qty-value ${item.low_stock ? 'low' : ''}">현재: ${item.quantity} / 부족: ${Math.max(0, (typeof item.min_threshold === 'number' ? item.min_threshold : 0) - item.quantity)}</span>
+                    <span class="qty-value ${item.low_stock ? 'low' : ''}">${item.quantity}</span>
                     <button class="qty-btn plus" onclick="quickAdjust(${item.id}, 1, event)">+</button>
                   </div>
                   <button class="btn btn-outline btn-sm" onclick="openTxModal(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">입출고</button>
