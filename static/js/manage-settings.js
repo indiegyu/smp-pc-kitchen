@@ -230,13 +230,24 @@
       loadSortable(()=>{
         const cardsContainer = byId('prioCards');
         if(cardsContainer){
-          new Sortable(cardsContainer, { handle: '.cat-drag', animation:150, draggable:'.cat-card', onEnd: async ()=> {
-            // persist category order
-            const order = Array.from(cardsContainer.querySelectorAll('.cat-card')).map(c => c.dataset.id).filter(id => id !== 'unassigned');
-            await ajaxApi('/api/checklist/priority-categories/reorder', { method:'POST', body:{ order }});
-            showToast && showToast('카테고리 순서 저장됨');
-            await renderPrioCategories();
-          }});
+          new Sortable(cardsContainer, {
+            handle: '.cat-drag',
+            animation: 150,
+            draggable: '.prio-cat',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            onEnd: async (evt) => {
+              // persist category order (exclude unassigned)
+              const order = Array.from(cardsContainer.querySelectorAll('.prio-cat')).map(c => c.dataset.id).filter(id => id !== 'unassigned');
+              try {
+                await ajaxApi('/api/checklist/priority-categories/reorder', { method:'POST', body:{ order }});
+                showToast && showToast('카테고리 순서 저장됨');
+              } catch (err) {
+                showToast && showToast('카테고리 순서 저장 실패','error');
+              }
+              await renderPrioCategories();
+            }
+          });
         }
         root.querySelectorAll('.item-list').forEach(ul=>{
           new Sortable(ul, {
