@@ -651,6 +651,9 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
         loadLowStock();
         loadCategories();
         loadAllItems();
+        if (typeof loadStaff === 'function') loadStaff();
+        if (typeof loadInventory === 'function') loadInventory();
+        if (typeof loadSearchDropdown === 'function') loadSearchDropdown();
     } else if (adminActive === 'settings') {
         loadStaff();
         loadCategories();
