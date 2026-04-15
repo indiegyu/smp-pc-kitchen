@@ -549,7 +549,7 @@ body {
 }
 
 .inv-item:last-child { border-bottom: none; margin-bottom: 0; }
-.inv-item.low-stock { background: var(--danger-light); border-color: rgba(220,38,38,0.9); }
+.inv-item.low-stock, .inventory-item.low-stock { background-color: #fff0f6 !important; border-color: #ff6b9a !important; }
 
 .inv-name {
     flex: 1;
