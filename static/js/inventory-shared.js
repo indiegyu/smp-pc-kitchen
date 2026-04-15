@@ -114,7 +114,7 @@
         try { stored = localStorage.getItem('shortage_cat_collapsed_' + key); } catch (e) { stored = null; }
         const isCollapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
         html += `<div class="inventory-category shortage-cat" data-cat-key="${key}">`;
-        html += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${name}</strong><span class="badge badge-count">${byCat[name].length}</span><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
+        html += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${name}</strong><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
         html += `<div class="inventory-cat-body ${isCollapsed ? 'collapsed' : ''}"><ul class="inventory-items">`;
         byCat[name].forEach(it => {
           html += `<li class="inventory-item low-stock"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
@@ -161,7 +161,7 @@
         try { stored = localStorage.getItem('inventory_cat_collapsed_' + key); } catch (e) { stored = null; }
         const isCollapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
         invHtml += `<div class="inventory-category" data-cat-key="${key}">`;
-        invHtml += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${cat.name}</strong><span class="badge badge-count">${(cat.items || []).length}</span><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
+        invHtml += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${cat.name}</strong><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
         invHtml += `<div class="inventory-cat-body ${isCollapsed ? 'collapsed' : ''}">`;
         if (cat.items && cat.items.length) {
           invHtml += '<ul class="inventory-items">';
@@ -253,7 +253,6 @@
         <div class="card" id="cat-${cat.id}">
           <div class="inv-card-header ${isCollapsed ? 'collapsed' : ''}" onclick="toggleCat(${cat.id})">
             <span>${cat.name}
-              <span class="badge badge-count">${filteredItems.length}</span>
               ${lowCount ? `<span class="badge badge-danger">${lowCount} 부족</span>` : ''}
             </span>
             <span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">&#9660;</span>
@@ -355,4 +354,17 @@
   window.openTxModal = openTxModal;
   window.submitTransaction = submitTransaction;
   window.showHistory = showHistory;
+
+  // auto-init on DOM ready for pages including inventory elements (ensures admin/manage loads too)
+  if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        if (document.getElementById('inventoryContainer') || document.getElementById('inventoryStatus') || document.getElementById('lowStockBody')) {
+          if (typeof loadStaff === 'function') loadStaff();
+          if (typeof loadInventory === 'function') loadInventory();
+          if (typeof loadSearchDropdown === 'function') loadSearchDropdown();
+        }
+      } catch (e) {}
+    });
+  }
 })();

@@ -429,7 +429,7 @@ body {
 
 .badge-count { background: var(--primary-light); color: var(--primary); }
 .badge-warning { background: var(--warning-light); color: #b45309; }
-.badge-danger { background-color: #fff !important; color: var(--danger); border: 1px solid var(--danger); }
+.badge-danger { background-color: #fff !important; color: var(--danger); border: none !important; box-shadow: none !important; padding: 2px 8px !important; margin-left: 6px !important; margin-right: 6px !important; }
 
 .card-body { padding: 0; }
 .card-body.collapsed { display: none; }
@@ -457,8 +457,10 @@ body {
 .shortage-card .badge {
     background: var(--surface);
     color: var(--danger);
-    border: 1px solid rgba(0,0,0,0.04);
+    border: none !important;
+    box-shadow: none !important;
     font-weight: 700;
+    margin-right: 6px;
 }
 .inventory-status-card .inventory-category + .inventory-category {
     border-top: 1px solid var(--border);
@@ -1303,6 +1305,11 @@ input[type="date"]:focus { border-color: var(--primary); }
     margin-top: 2px !important;
     padding-top: 2px !important;
 }
+
+/* Ensure category headers vertically centered and badges spaced */
+.inventory-cat-header { align-items: center !important; }
+.inventory-cat-header > strong, .inventory-cat-header .toggle-arrow, .inventory-cat-header .badge { display: inline-flex; align-items: center; }
+.badge.badge-danger { margin-right: 6px !important; border: none !important; box-shadow: none !important; padding: 2px 8px !important; }
 
 /* make category headers visually light and compact inside lowStockBody */
 #lowStockBody .inventory-cat-header {
