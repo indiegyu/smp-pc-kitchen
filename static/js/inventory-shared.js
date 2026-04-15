@@ -110,13 +110,14 @@
       let html = '<div class="inventory-status-card shortage-card">';
       catNames.forEach((name, idx) => {
         const key = encodeURIComponent(name);
-        html += `<div class="inventory-category shortage-cat" data-cat-key="${key}">`;
-        html += `<div class="inventory-cat-title"><strong>${name}</strong></div>`;
-        html += `<div class="inventory-cat-body"><ul class="inventory-items">`;
-        byCat[name].forEach(it => {
-          html += `<li class="inventory-item low-stock"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
-        });
-        html += `</ul></div></div>`;
+       html += `<div class="inventory-category shortage-cat" data-cat-key="${key}">`;
+       html += `<div class="inventory-cat-title"><strong>${name}</strong></div>`;
+       html += `<div class="inventory-cat-body"><ul class="inventory-items">`;
+       byCat[name].forEach(it => {
+         const shortage = (typeof it.min_threshold === 'number') ? Math.max(0, it.min_threshold - it.quantity) : 0;
+         html += `<li class="inventory-item low-stock"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">현재: ${it.quantity} / 부족: ${shortage}</span></li>`;
+       });
+       html += `</ul></div></div>`;
       });
       html += '</div>';
       el.innerHTML = html;
@@ -144,7 +145,8 @@
         if (cat.items && cat.items.length) {
           invHtml += '<ul class="inventory-items">';
           cat.items.forEach(it => {
-            invHtml += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
+            const shortage = (typeof it.min_threshold === 'number') ? Math.max(0, it.min_threshold - it.quantity) : 0;
+            invHtml += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">현재: ${it.quantity} / 부족: ${shortage}</span></li>`;
           });
           invHtml += '</ul>';
         } else {
@@ -182,11 +184,25 @@
   function renderCatPills() {
     const container = document.getElementById('catPills');
     if (!container) return;
-    container.innerHTML =
-      `<button class="cat-pill ${window.activeCat === null ? 'active' : ''}" onclick="selectCat(null)">전체</button>` +
-      (window.inventoryData || []).map(cat =>
-        `<button class="cat-pill ${window.activeCat === cat.id ? 'active' : ''}" onclick="selectCat(${cat.id})">${cat.name}</button>`
-      ).join('');
+    container.innerHTML = '';
+    const makePill = (id, label) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cat-pill' + (window.activeCat === id ? ' active' : '');
+      btn.setAttribute('aria-pressed', window.activeCat === id ? 'true' : 'false');
+      btn.dataset.catId = (id === null) ? '' : String(id);
+      btn.textContent = label;
+      btn.addEventListener('click', () => selectCat(id));
+      btn.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          btn.click();
+        }
+      });
+      return btn;
+    };
+    container.appendChild(makePill(null, '전체'));
+    (window.inventoryData || []).forEach(cat => container.appendChild(makePill(cat.id, cat.name)));
   }
 
   function selectCat(catId) {
@@ -196,7 +212,16 @@
     if (catId !== null) {
       (window.inventoryData || []).forEach(cat => { window.collapsedCats[cat.id] = cat.id !== catId; });
     }
-    renderCatPills();
+    // update pill active/aria state without full re-render to preserve focus
+    const container = document.getElementById('catPills');
+    if (container) {
+      container.querySelectorAll('.cat-pill').forEach(b => {
+        const bid = b.dataset.catId;
+        const isActive = (catId === null && bid === '') || (catId !== null && bid === String(catId));
+        b.classList.toggle('active', !!isActive);
+        b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+    }
     renderInventory();
   }
 
@@ -245,7 +270,7 @@
                   </div>
                   <div class="inv-qty">
                     <button class="qty-btn minus" onclick="quickAdjust(${item.id}, -1, event)">-</button>
-                    <span class="qty-value ${item.low_stock ? 'low' : ''}">${item.quantity}</span>
+                     <span class="qty-value ${item.low_stock ? 'low' : ''}">현재: ${item.quantity} / 부족: ${Math.max(0, (typeof item.min_threshold === 'number' ? item.min_threshold : 0) - item.quantity)}</span>
                     <button class="qty-btn plus" onclick="quickAdjust(${item.id}, 1, event)">+</button>
                   </div>
                   <button class="btn btn-outline btn-sm" onclick="openTxModal(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">입출고</button>
@@ -337,10 +362,27 @@
   if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', () => {
       try {
-        if (document.getElementById('inventoryContainer') || document.getElementById('inventoryStatus') || document.getElementById('lowStockBody')) {
+        const hasInventory = document.getElementById('inventoryContainer') || document.getElementById('inventoryStatus') || document.getElementById('lowStockBody');
+        if (hasInventory) {
           if (typeof loadStaff === 'function') loadStaff();
           if (typeof loadInventory === 'function') loadInventory();
           if (typeof loadSearchDropdown === 'function') loadSearchDropdown();
+          // ensure search input event is bound
+          const si = document.getElementById('searchInput');
+          if (si) {
+            si.removeAttribute('oninput');
+            si.addEventListener('input', onSearch);
+          }
+          // keyboard support for cat pills
+          const pillContainer = document.getElementById('catPills');
+          if (pillContainer) {
+            pillContainer.addEventListener('keydown', e => {
+              if (e.target && e.target.classList && e.target.classList.contains('cat-pill') && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                e.target.click();
+              }
+            });
+          }
         }
       } catch (e) {}
     });
