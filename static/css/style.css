@@ -1284,7 +1284,7 @@ input[type="date"]:focus { border-color: var(--primary); }
 /* ─── Overrides: lowStock visual fixes requested by user ───────────────── */
 #lowStockBody {
     background: var(--surface) !important;
-    padding: 6px !important;
+    padding: 12px !important;
 }
 #lowStockBody .shortage-card {
     background: transparent !important;
@@ -1295,15 +1295,42 @@ input[type="date"]:focus { border-color: var(--primary); }
 #lowStockBody .inventory-status-card {
     background: var(--surface) !important;
     border: none !important;
-    padding: 6px !important;
+    padding: 0 !important;
     box-shadow: none !important;
 }
 
+/* Category layout for low-stock: show all categories expanded with visual grouping */
+#lowStockBody .inventory-category.shortage-cat {
+    background: #fff0f6 !important;
+    border: 1px solid rgba(255,107,154,0.18) !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+    margin-bottom: 12px !important;
+}
+#lowStockBody .inventory-cat-title {
+    font-weight: 700;
+    padding: 4px 6px;
+    margin-bottom: 6px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    color: var(--text);
+}
+#lowStockBody .inventory-cat-body { display:block !important; padding:0 !important; }
+#lowStockBody .inventory-category .inventory-item {
+    padding: 8px 10px !important;
+    border: 1px solid rgba(0,0,0,0.04) !important;
+    border-radius: 6px !important;
+    background: #fff !important;
+    margin-bottom: 8px !important;
+}
+#lowStockBody .inventory-category .inventory-item:last-child { margin-bottom:0 !important; border-bottom:none !important; }
+
 /* tighten spacing between categories inside status card */
 .inventory-status-card .inventory-category + .inventory-category {
-    border-top: none !important;
-    margin-top: 2px !important;
-    padding-top: 2px !important;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    margin-top: 8px;
 }
 
 /* Ensure category headers vertically centered and badges spaced */

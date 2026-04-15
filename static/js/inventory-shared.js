@@ -110,12 +110,9 @@
       let html = '<div class="inventory-status-card shortage-card">';
       catNames.forEach((name, idx) => {
         const key = encodeURIComponent(name);
-        let stored = null;
-        try { stored = localStorage.getItem('shortage_cat_collapsed_' + key); } catch (e) { stored = null; }
-        const isCollapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
         html += `<div class="inventory-category shortage-cat" data-cat-key="${key}">`;
-        html += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${name}</strong><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
-        html += `<div class="inventory-cat-body ${isCollapsed ? 'collapsed' : ''}"><ul class="inventory-items">`;
+        html += `<div class="inventory-cat-title"><strong>${name}</strong></div>`;
+        html += `<div class="inventory-cat-body"><ul class="inventory-items">`;
         byCat[name].forEach(it => {
           html += `<li class="inventory-item low-stock"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
         });
@@ -124,25 +121,6 @@
       html += '</div>';
       el.innerHTML = html;
 
-      // attach handlers for category toggles (click + keyboard)
-      el.querySelectorAll('.inventory-cat-header').forEach(h => {
-        const key = h.dataset.catKey;
-        h.addEventListener('click', () => {
-          const body = h.nextElementSibling;
-          if (!body) return;
-          const collapsed = body.classList.toggle('collapsed');
-          h.setAttribute('aria-expanded', (!collapsed).toString());
-          const arrow = h.querySelector('.toggle-arrow');
-          if (arrow) arrow.classList.toggle('collapsed', collapsed);
-          try { localStorage.setItem('shortage_cat_collapsed_' + key, collapsed ? '1' : '0'); } catch (e) {}
-        });
-        h.addEventListener('keydown', e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            h.click();
-          }
-        });
-      });
     }
 
     // Render full inventory into #inventoryStatus (admin) if present
