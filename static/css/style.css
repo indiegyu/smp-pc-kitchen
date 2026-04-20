@@ -1242,6 +1242,20 @@ input[type="date"]:focus { border-color: var(--primary); }
 .scroll-fab:active { transform: scale(0.9); }
 
 /* ─── Inventory Collapse Toggle ───────────────────── */
+/* Drag handle visibility fix for checklist/prio lists */
+.cat-drag, .drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  cursor: grab;
+  user-select: none;
+  pointer-events: auto;
+  margin-right: 6px;
+}
+.cat-drag:active, .drag-handle:active { cursor: grabbing; }
+
 .inv-card-header {
     padding: 12px 16px;
     font-weight: 700;

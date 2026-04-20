@@ -48,10 +48,11 @@
     <div class="entry-left" aria-hidden="false">
       <h2 style="margin-bottom:8px;">근무 선택</h2>
       <div style="max-width:360px;text-align:center;color:var(--text-secondary);margin-bottom:12px;">근무 형태를 선택한 뒤, 오른쪽에서 담당 직원을 골라주세요.</div>
-      <div class="entry-shifts" role="tablist" aria-label="근무 선택">
-        <button class="entry-shift-btn" data-shift="day" data-selected="false" onclick="selectShiftInModal('day')" data-shift-label>오전</button>
-        <button class="entry-shift-btn" data-shift="night" data-selected="false" onclick="selectShiftInModal('night')" data-shift-label>오후</button>
-      </div>
+        <div class="entry-shifts" role="tablist" aria-label="근무 선택">
+          <button class="entry-shift-btn" data-shift="day" data-selected="false" onclick="selectShiftInModal('day')" data-shift-label>오전</button>
+          <button class="entry-shift-btn" data-shift="night" data-selected="false" onclick="selectShiftInModal('night')" data-shift-label>오후</button>
+          <button class="entry-shift-btn" data-shift="boss" data-selected="false" onclick="showAdminModal()" title="사장님 인증" style="background:#fff;border:1px solid var(--border)">사장님</button>
+        </div>
     </div>
     <div class="entry-right" id="entryRight" aria-live="polite" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -659,6 +660,57 @@ loadStaff();
             if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
         });
     }, 80);
+})();
+
+// Socket.IO client for real-time messages (joins room per staff/date/shift and shows alert on incoming messages)
+(function setupSocketClient(){
+    const script = document.createElement('script');
+    script.src = '/socket.io/socket.io.js';
+    script.onload = () => {
+        try {
+            const socket = io();
+
+            function joinMyRoom() {
+                const staffName = localStorage.getItem('smp_staff') || '';
+                if (!staffName) return;
+                // attempt to resolve staff id via API (best-effort)
+                api('/api/staff').then(list => {
+                    const st = (list || []).find(s => s.name === staffName);
+                    if (!st) return;
+                    const roomPayload = {
+                        recipient_id: st.id,
+                        date: (dateInput && dateInput.value) ? dateInput.value : getResetIsoDate(),
+                        shift: localStorage.getItem('smp_shift') || currentShift || 'day'
+                    };
+                    socket.emit('join', roomPayload);
+                }).catch(()=>{});
+            }
+
+            socket.on('connect', () => { joinMyRoom(); });
+
+            // re-join room whenever selection or date changes
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'smp_staff' || e.key === 'smp_shift' || e.key === 'smp_selected_date') {
+                    joinMyRoom();
+                }
+            });
+
+            socket.on('message', (payload) => {
+                try {
+                    const p = payload || {};
+                    const from = p.sender_name || '관리자';
+                    const text = p.content || '';
+                    // simple popup alert for now
+                    alert(`[${from}] ${text}`);
+                    // auto-mark read if message id provided
+                    if (p.id) {
+                        api(`/api/messages/${p.id}/read`, { method: 'POST' }).catch(()=>{});
+                    }
+                } catch (e) {}
+            });
+        } catch (e) {}
+    };
+    document.head.appendChild(script);
 })();
 </script>
 {% endblock %}

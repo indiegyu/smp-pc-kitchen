@@ -52,6 +52,21 @@ class DailyNote(db.Model):
         db.UniqueConstraint('date', 'shift', 'type', name='uq_note_date_shift_type'),
     )
 
+class Message(db.Model):
+    """Messages sent from admin to staff for a given date/shift."""
+    __tablename__ = 'messages'
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=True)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    shift = db.Column(db.String(10), nullable=False)  # 'day' or 'night'
+    content = db.Column(db.Text, nullable=False)
+    read_flag = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    sender = db.relationship('Staff', foreign_keys=[sender_id], backref='sent_messages')
+    recipient = db.relationship('Staff', foreign_keys=[recipient_id], backref='received_messages')
+
 
 class InventoryCategory(db.Model):
     __tablename__ = 'inventory_categories'
