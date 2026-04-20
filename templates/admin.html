@@ -410,6 +410,25 @@ async function loadDetail(shift) {
             html += `</div></div>`;
         });
         container.innerHTML = html;
+        (async function(){
+          try {
+            const d = viewDate ? viewDate.value : getResetIsoDate();
+            const [purchase, handoff] = await Promise.all([
+              api(`/api/notes/${shift}/purchase?date=${d}`),
+              api(`/api/notes/${shift}/handoff?date=${d}`)
+            ]);
+            const purEl = document.getElementById('adminPurchaseNote');
+            const hanEl = document.getElementById('adminHandoffNote');
+            if (purEl) purEl.textContent = (purchase && purchase.content) ? purchase.content : '-';
+            if (hanEl) hanEl.textContent = (handoff && handoff.content) ? handoff.content : '-';
+          } catch (e) {
+            console.error('load admin notes failed', e);
+            const purEl = document.getElementById('adminPurchaseNote');
+            const hanEl = document.getElementById('adminHandoffNote');
+            if (purEl) purEl.textContent = '-';
+            if (hanEl) hanEl.textContent = '-';
+          }
+        })();
         return;
     }
 
@@ -444,6 +463,26 @@ async function loadDetail(shift) {
         html += `</div></div>`;
     });
     container.innerHTML = html;
+    // load admin notes for selected date/shift
+    (async function(){
+      try {
+        const d = viewDate ? viewDate.value : getResetIsoDate();
+        const [purchase, handoff] = await Promise.all([
+          api(`/api/notes/${shift}/purchase?date=${d}`),
+          api(`/api/notes/${shift}/handoff?date=${d}`)
+        ]);
+        const purEl = document.getElementById('adminPurchaseNote');
+        const hanEl = document.getElementById('adminHandoffNote');
+        if (purEl) purEl.textContent = (purchase && purchase.content) ? purchase.content : '-';
+        if (hanEl) hanEl.textContent = (handoff && handoff.content) ? handoff.content : '-';
+      } catch (e) {
+        console.error('load admin notes failed', e);
+        const purEl = document.getElementById('adminPurchaseNote');
+        const hanEl = document.getElementById('adminHandoffNote');
+        if (purEl) purEl.textContent = '-';
+        if (hanEl) hanEl.textContent = '-';
+      }
+    })();
 }
 
 /* Inventory helpers (only used when inventory view active) */
