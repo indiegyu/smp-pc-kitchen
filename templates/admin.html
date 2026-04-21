@@ -39,6 +39,57 @@
         </div>
     </div>
 </div>
+
+<!-- Admin quick actions: 메시지 보내기 / 메시지 로그 -->
+<div class="card" style="margin-top:12px">
+  <div class="card-body" style="padding:16px; display:flex; gap:8px; align-items:center; justify-content:flex-start;">
+    <button id="openSendMsgBtn" class="btn btn-primary btn-sm">메시지 보내기</button>
+    <button id="openMsgLogsBtn" class="btn btn-outline btn-sm">메시지 로그</button>
+    <div style="margin-left:auto;color:var(--text-secondary);font-size:0.9rem">관리자 전용 기능</div>
+  </div>
+</div>
+
+<!-- Send Message Modal -->
+<div id="sendMessageModal" class="modal-overlay" aria-hidden="true" style="display:none;">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sendMessageTitle">
+    <h3 id="sendMessageTitle">근무자에게 메시지 보내기</h3>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+      <label>수신자</label>
+      <select id="sendMsgRecipient" style="min-width:200px;padding:6px;border-radius:6px;border:1px solid var(--border)"></select>
+      <label>근무일</label>
+      <input id="sendMsgDate" type="date" value="{{ server_today }}">
+      <label>근무</label>
+      <select id="sendMsgShift"><option value="day">오전</option><option value="night">오후</option></select>
+      <label>내용</label>
+      <textarea id="sendMsgContent" rows="4" style="width:100%;"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+      <button type="button" id="sendMsgCancel" class="btn btn-outline">취소</button>
+      <button type="button" id="sendMsgSubmit" class="btn btn-primary">전송</button>
+    </div>
+  </div>
+</div>
+
+<!-- Message Logs Modal -->
+<div id="messageLogsModal" class="modal-overlay" aria-hidden="true" style="display:none;">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="messageLogsTitle">
+    <h3 id="messageLogsTitle">메시지 로그</h3>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+      <label style="white-space:nowrap">수신자</label>
+      <select id="logsRecipient" style="min-width:200px;padding:6px;border-radius:6px;border:1px solid var(--border)"></select>
+      <label style="white-space:nowrap">기간(시작)</label>
+      <input id="logsStart" type="date" value="">
+      <label style="white-space:nowrap">기간(종료)</label>
+      <input id="logsEnd" type="date" value="">
+      <button id="loadLogsBtn" class="btn btn-outline btn-sm">조회</button>
+    </div>
+    <div id="logsContainer" style="margin-top:12px;max-height:50vh;overflow:auto;border-top:1px solid var(--border);padding-top:8px;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+      <button type="button" id="closeLogsBtn" class="btn btn-outline">닫기</button>
+    </div>
+  </div>
+</div>
+
 {% endif %}
 
 {# --- 재고 관련 (인벤토리) --- #}
@@ -698,7 +749,111 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
         loadCategories();
         loadAllItems();
     }
-})();
+})(); 
+
+/* --- Admin messaging UI handlers --- */
+function showModal(id) {
+  const m = document.getElementById(id);
+  if (!m) return;
+  m.style.display = 'flex';
+  m.classList.add('show');
+  m.setAttribute('aria-hidden', 'false');
+}
+function hideModal(id) {
+  const m = document.getElementById(id);
+  if (!m) return;
+  m.style.display = 'none';
+  m.classList.remove('show');
+  m.setAttribute('aria-hidden', 'true');
+}
+
+async function loadStaffInto(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">로딩...</option>';
+  try {
+    const staff = await api('/api/staff') || [];
+    const opts = (staff || []).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    sel.innerHTML = `<option value="">전체</option>` + opts;
+  } catch (e) {
+    sel.innerHTML = '<option value="">불러오기 실패</option>';
+  }
+}
+
+document.getElementById('openSendMsgBtn') && document.getElementById('openSendMsgBtn').addEventListener('click', async () => {
+  await loadStaffInto('sendMsgRecipient');
+  const dateEl = document.getElementById('sendMsgDate');
+  if (dateEl && !dateEl.value) dateEl.value = window.server_today || '';
+  showModal('sendMessageModal');
+});
+document.getElementById('sendMsgCancel') && document.getElementById('sendMsgCancel').addEventListener('click', () => hideModal('sendMessageModal'));
+document.getElementById('sendMsgSubmit') && document.getElementById('sendMsgSubmit').addEventListener('click', async () => {
+  const rid = document.getElementById('sendMsgRecipient').value;
+  const date = document.getElementById('sendMsgDate').value || window.server_today;
+  const shift = document.getElementById('sendMsgShift').value || 'day';
+  const content = document.getElementById('sendMsgContent').value || '';
+  if (!rid || !content.trim()) { showToast('수신자와 내용을 입력하세요','error'); return; }
+  try {
+    const res = await api('/api/messages', { method: 'POST', body: { recipient_id: Number(rid), date, shift, content }});
+    if (res && res.ok) {
+      showToast('메시지 전송 완료','success');
+      hideModal('sendMessageModal');
+      const el = document.getElementById('sendMsgContent'); if (el) el.value = '';
+    } else {
+      showToast(res && res.error ? res.error : '전송 실패','error');
+    }
+  } catch (e) {
+    showToast('서버 오류','error');
+  }
+});
+
+/* Message logs */
+document.getElementById('openMsgLogsBtn') && document.getElementById('openMsgLogsBtn').addEventListener('click', async () => {
+  await loadStaffInto('logsRecipient');
+  const start = document.getElementById('logsStart');
+  const end = document.getElementById('logsEnd');
+  if (start && !start.value) start.value = '';
+  if (end && !end.value) end.value = window.server_today || '';
+  showModal('messageLogsModal');
+});
+document.getElementById('closeLogsBtn') && document.getElementById('closeLogsBtn').addEventListener('click', () => hideModal('messageLogsModal'));
+document.getElementById('loadLogsBtn') && document.getElementById('loadLogsBtn').addEventListener('click', async () => {
+  const rid = document.getElementById('logsRecipient').value;
+  const start = document.getElementById('logsStart').value;
+  const end = document.getElementById('logsEnd').value;
+  const q = [];
+  if (rid) q.push(`recipient_id=${encodeURIComponent(rid)}`);
+  if (start) q.push(`start=${encodeURIComponent(start)}`);
+  if (end) q.push(`end=${encodeURIComponent(end)}`);
+  const url = '/api/messages/logs' + (q.length ? ('?' + q.join('&')) : '');
+  const container = document.getElementById('logsContainer');
+  container.innerHTML = '로딩 중...';
+  try {
+    const logs = await api(url) || [];
+    if (!Array.isArray(logs) || !logs.length) {
+      container.innerHTML = '<div style="color:var(--text-secondary)">메시지 로그가 없습니다.</div>';
+      return;
+    }
+    container.innerHTML = logs.map(l => {
+      const time = l.created_at || '';
+      const from = l.sender_name || '관리자';
+      const to = l.recipient_name || '';
+      const read = l.read_flag ? '읽음' : '미확인';
+      return `<div style="padding:8px;border-bottom:1px solid var(--border)"><div style="font-weight:700">${escapeHtml(l.content || '')}</div><div style="font-size:0.85rem;color:var(--text-secondary);margin-top:6px">${time} · ${from} → ${to} · ${read}</div></div>`;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = '<div style="color:var(--text-secondary)">조회 실패</div>';
+  }
+});
+
+/* small helper escapeHtml reused */
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return {'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c];
+  });
+}
+
 </script>
 <script src="/static/js/manage-settings.js"></script>
 {% endblock %}

@@ -5,13 +5,16 @@
 {% block content %}
 <div class="page-header">
     <h1>SMP PC Kitchen <span id="shiftLabel">DayTime</span> Checklist</h1>
-    <div class="header-controls">
-        <input type="date" id="dateInput" value="">
-        <div id="currentSelectionBadge" class="current-badge" style="display:inline-flex;align-items:center;margin-left:12px;">
-            <span id="badgeText"></span>
-            <button class="btn btn-outline btn-sm" id="changeEntryBtn" style="margin-left:8px;display:none" onclick="resetSelection()">변경</button>
+        <div class="header-controls">
+            <input type="date" id="dateInput" value="">
+            <div id="currentSelectionBadge" class="current-badge" style="display:inline-flex;align-items:center;margin-left:12px;">
+                <span id="badgeText"></span>
+                <button class="btn btn-outline btn-sm" id="changeEntryBtn" style="margin-left:8px;display:none" onclick="resetSelection()">변경</button>
+            </div>
+            <button type="button" id="msgBell" class="btn btn-outline btn-sm" title="메시지" style="margin-left:12px;position:relative;">
+              🔔 <span id="msgCount" class="badge-count" style="display:none;margin-left:6px;"></span>
+            </button>
         </div>
-    </div>
 </div>
 
 <div class="staff-bar">
@@ -150,6 +153,22 @@
         <div class="note-header">인수인계 및 전달 사항</div>
         <textarea class="note-textarea" id="handoffNote" placeholder="인수인계 내용을 작성하세요..." rows="12"></textarea>
     </div>
+<!-- Inbox modal for public users -->
+<div id="inboxModal" class="modal-overlay" aria-hidden="true" style="display:none;">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="inboxTitle">
+    <h3 id="inboxTitle">메시지함</h3>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+      <label style="white-space:nowrap">기간(시작)</label>
+      <input id="inboxStart" type="date" style="margin-left:6px;">
+      <label style="white-space:nowrap;margin-left:8px;">기간(종료)</label>
+      <input id="inboxEnd" type="date" style="margin-left:6px;">
+      <button id="inboxLoad" class="btn btn-outline btn-sm" style="margin-left:8px;">조회</button>
+      <div style="margin-left:auto"><button id="inboxClose" class="btn btn-outline btn-sm">닫기</button></div>
+    </div>
+    <div id="inboxContainer" style="margin-top:12px;max-height:50vh;overflow:auto;border-top:1px solid var(--border);padding-top:8px;"></div>
+  </div>
+</div>
+
 </div>
 {% endblock %}
 
@@ -809,6 +828,123 @@ loadStaff();
         });
     }, 80);
 })();
+
+
+// --- Messaging: public inbox & polling ---
+const MSG_POLL_INTERVAL = 20000;
+let msgPollTimer = null;
+
+function updateMsgBadge(count) {
+  const badge = document.getElementById('msgCount');
+  if (!badge) return;
+  if (count && count > 0) {
+    badge.textContent = String(count);
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function getCurrentStaffId() {
+  const name = localStorage.getItem('smp_staff') || '';
+  if (!name) return null;
+  try {
+    const staff = await api('/api/staff') || [];
+    const s = (staff || []).find(s => s && s.name === name);
+    return s ? s.id : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function fetchUnreadCountAndUpdate() {
+  const rid = await getCurrentStaffId();
+  if (!rid) { updateMsgBadge(0); return; }
+  const d = dateInput.value || getResetIsoDate();
+  const shift = localStorage.getItem('smp_shift') || currentShift || 'day';
+  try {
+    const msgs = await api(`/api/messages/user?recipient_id=${encodeURIComponent(rid)}&date=${encodeURIComponent(d)}&shift=${encodeURIComponent(shift)}`);
+    const unread = Array.isArray(msgs) ? msgs.filter(m => !m.read_flag).length : 0;
+    updateMsgBadge(unread);
+  } catch (e) {
+    console.error('fetchUnreadCount failed', e);
+  }
+}
+
+function startMsgPolling() {
+  if (msgPollTimer) clearInterval(msgPollTimer);
+  fetchUnreadCountAndUpdate();
+  msgPollTimer = setInterval(fetchUnreadCountAndUpdate, MSG_POLL_INTERVAL);
+}
+
+async function openInbox() {
+  const rid = await getCurrentStaffId();
+  if (!rid) { showToast('담당자를 선택하세요','error'); return; }
+  const modal = document.getElementById('inboxModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden','false');
+  const end = document.getElementById('inboxEnd');
+  const start = document.getElementById('inboxStart');
+  if (end) end.value = dateInput.value || getResetIsoDate();
+  if (start && !start.value) start.value = end.value;
+  await loadInbox(rid, start.value, end.value);
+}
+
+document.getElementById('msgBell') && document.getElementById('msgBell').addEventListener('click', openInbox);
+document.getElementById('inboxClose') && document.getElementById('inboxClose').addEventListener('click', () => {
+  const modal = document.getElementById('inboxModal'); if (!modal) return; modal.style.display = 'none'; modal.setAttribute('aria-hidden','true');
+});
+document.getElementById('inboxLoad') && document.getElementById('inboxLoad').addEventListener('click', async () => {
+  const rid = await getCurrentStaffId();
+  if (!rid) { showToast('담당자를 선택하세요','error'); return; }
+  const start = document.getElementById('inboxStart').value;
+  const end = document.getElementById('inboxEnd').value;
+  await loadInbox(rid, start, end);
+});
+
+async function loadInbox(rid, start, end) {
+  const q = [];
+  if (start) q.push(`start=${encodeURIComponent(start)}`);
+  if (end) q.push(`end=${encodeURIComponent(end)}`);
+  const url = '/api/messages/user?recipient_id=' + encodeURIComponent(rid) + (q.length ? ('&' + q.join('&')) : '');
+  let msgs = [];
+  try {
+    msgs = await api(url) || [];
+  } catch (e) {
+    console.error('loadInbox failed', e);
+  }
+  const container = document.getElementById('inboxContainer');
+  if (!container) return;
+  if (!Array.isArray(msgs) || !msgs.length) {
+    container.innerHTML = '<div style="color:var(--text-secondary)">메시지가 없습니다.</div>';
+    updateMsgBadge(0);
+    return;
+  }
+  // show newest first
+  const list = msgs.slice().reverse();
+  container.innerHTML = list.map(m => `
+    <div class="inbox-item" data-id="${m.id}" style="padding:10px;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:700">${escapeHtml(m.sender_name || '관리자')}</div>
+        <div style="font-size:0.85rem;color:var(--text-secondary)">${escapeHtml(m.created_at)}</div>
+      </div>
+      <div style="margin-top:8px;">${escapeHtml(m.content)}</div>
+    </div>`).join('');
+  // attach click to mark read
+  container.querySelectorAll('.inbox-item').forEach(el => {
+    el.addEventListener('click', async () => {
+      const id = el.getAttribute('data-id');
+      try {
+        await api(`/api/messages/${id}/read`, { method: 'POST' });
+        el.style.opacity = '0.6';
+        fetchUnreadCountAndUpdate();
+      } catch (e) { /* ignore */ }
+    });
+  });
+}
+
+startMsgPolling();
 
 </script>
 {% endblock %}

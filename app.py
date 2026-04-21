@@ -467,9 +467,13 @@ def post_message():
     data = request.json or {}
     password = data.get('password', '')
     expected = os.environ.get('ADMIN_PASSWORD')
-    # allow legacy '0000' admin shortcut
-    if password != '0000' and (not expected or password != expected):
-        return jsonify({'error': 'Invalid admin password'}), 401
+    # allow requests originating from admin pages (/manage) to post without password
+    referer = request.headers.get('Referer', '') or ''
+    is_admin_referer = '/manage' in referer
+    if not is_admin_referer:
+        # allow legacy '0000' admin shortcut
+        if password != '0000' and (not expected or password != expected):
+            return jsonify({'error': 'Invalid admin password'}), 401
 
     try:
         recipient_id = int(data['recipient_id'])
@@ -521,15 +525,36 @@ def get_user_messages():
     except:
         return jsonify({'error': 'invalid recipient_id'}), 400
 
-    target_date = request.args.get('date', datetime.now(KST).date().isoformat())
-    tdate = date.fromisoformat(target_date)
     shift = request.args.get('shift')
+    date_param = request.args.get('date')
+    start = request.args.get('start')
+    end = request.args.get('end')
 
-    q = Message.query.filter_by(recipient_id=rid, date=tdate)
+    q = Message.query.filter_by(recipient_id=rid)
+    if date_param:
+        try:
+            tdate = date.fromisoformat(date_param)
+            q = q.filter_by(date=tdate)
+        except:
+            pass
+    else:
+        if start:
+            try:
+                sdate = date.fromisoformat(start)
+                q = q.filter(Message.date >= sdate)
+            except:
+                pass
+        if end:
+            try:
+                edate = date.fromisoformat(end)
+                q = q.filter(Message.date <= edate)
+            except:
+                pass
+
     if shift:
         q = q.filter_by(shift=shift)
 
-    msgs = q.order_by(Message.created_at.asc()).all()
+    msgs = q.order_by(Message.created_at.asc()).limit(1000).all()
     return jsonify([{
         'id': m.id,
         'sender_id': m.sender_id,
