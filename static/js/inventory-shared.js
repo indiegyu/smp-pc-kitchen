@@ -110,39 +110,18 @@
       let html = '<div class="inventory-status-card shortage-card">';
       catNames.forEach((name, idx) => {
         const key = encodeURIComponent(name);
-        let stored = null;
-        try { stored = localStorage.getItem('shortage_cat_collapsed_' + key); } catch (e) { stored = null; }
-        const isCollapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
-        html += `<div class="inventory-category shortage-cat" data-cat-key="${key}">`;
-        html += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${name}</strong><span class="badge badge-count">${byCat[name].length}</span><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
-        html += `<div class="inventory-cat-body ${isCollapsed ? 'collapsed' : ''}"><ul class="inventory-items">`;
-        byCat[name].forEach(it => {
-          html += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
-        });
-        html += `</ul></div></div>`;
+       html += `<div class="inventory-category shortage-cat" data-cat-key="${key}">`;
+       html += `<div class="inventory-cat-title"><strong>${name}</strong></div>`;
+       html += `<div class="inventory-cat-body"><ul class="inventory-items">`;
+       byCat[name].forEach(it => {
+         const shortage = (typeof it.min_threshold === 'number') ? Math.max(0, it.min_threshold - it.quantity) : 0;
+         html += `<li class="inventory-item low-stock"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
+       });
+       html += `</ul></div></div>`;
       });
       html += '</div>';
       el.innerHTML = html;
 
-      // attach handlers for category toggles (click + keyboard)
-      el.querySelectorAll('.inventory-cat-header').forEach(h => {
-        const key = h.dataset.catKey;
-        h.addEventListener('click', () => {
-          const body = h.nextElementSibling;
-          if (!body) return;
-          const collapsed = body.classList.toggle('collapsed');
-          h.setAttribute('aria-expanded', (!collapsed).toString());
-          const arrow = h.querySelector('.toggle-arrow');
-          if (arrow) arrow.classList.toggle('collapsed', collapsed);
-          try { localStorage.setItem('shortage_cat_collapsed_' + key, collapsed ? '1' : '0'); } catch (e) {}
-        });
-        h.addEventListener('keydown', e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            h.click();
-          }
-        });
-      });
     }
 
     // Render full inventory into #inventoryStatus (admin) if present
@@ -161,11 +140,12 @@
         try { stored = localStorage.getItem('inventory_cat_collapsed_' + key); } catch (e) { stored = null; }
         const isCollapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
         invHtml += `<div class="inventory-category" data-cat-key="${key}">`;
-        invHtml += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${cat.name}</strong><span class="badge badge-count">${(cat.items || []).length}</span><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
+        invHtml += `<div class="inventory-cat-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}" data-cat-key="${key}"><strong>${cat.name}</strong><span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">▾</span></div>`;
         invHtml += `<div class="inventory-cat-body ${isCollapsed ? 'collapsed' : ''}">`;
         if (cat.items && cat.items.length) {
           invHtml += '<ul class="inventory-items">';
           cat.items.forEach(it => {
+            const shortage = (typeof it.min_threshold === 'number') ? Math.max(0, it.min_threshold - it.quantity) : 0;
             invHtml += `<li class="inventory-item"><span class="inventory-item-name">${it.name}</span><span class="inventory-item-qty">${it.quantity}</span></li>`;
           });
           invHtml += '</ul>';
@@ -204,11 +184,25 @@
   function renderCatPills() {
     const container = document.getElementById('catPills');
     if (!container) return;
-    container.innerHTML =
-      `<button class="cat-pill ${window.activeCat === null ? 'active' : ''}" onclick="selectCat(null)">전체</button>` +
-      (window.inventoryData || []).map(cat =>
-        `<button class="cat-pill ${window.activeCat === cat.id ? 'active' : ''}" onclick="selectCat(${cat.id})">${cat.name}</button>`
-      ).join('');
+    container.innerHTML = '';
+    const makePill = (id, label) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cat-pill' + (window.activeCat === id ? ' active' : '');
+      btn.setAttribute('aria-pressed', window.activeCat === id ? 'true' : 'false');
+      btn.dataset.catId = (id === null) ? '' : String(id);
+      btn.textContent = label;
+      btn.addEventListener('click', () => selectCat(id));
+      btn.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          btn.click();
+        }
+      });
+      return btn;
+    };
+    container.appendChild(makePill(null, '전체'));
+    (window.inventoryData || []).forEach(cat => container.appendChild(makePill(cat.id, cat.name)));
   }
 
   function selectCat(catId) {
@@ -218,7 +212,16 @@
     if (catId !== null) {
       (window.inventoryData || []).forEach(cat => { window.collapsedCats[cat.id] = cat.id !== catId; });
     }
-    renderCatPills();
+    // update pill active/aria state without full re-render to preserve focus
+    const container = document.getElementById('catPills');
+    if (container) {
+      container.querySelectorAll('.cat-pill').forEach(b => {
+        const bid = b.dataset.catId;
+        const isActive = (catId === null && bid === '') || (catId !== null && bid === String(catId));
+        b.classList.toggle('active', !!isActive);
+        b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+    }
     renderInventory();
   }
 
@@ -253,7 +256,6 @@
         <div class="card" id="cat-${cat.id}">
           <div class="inv-card-header ${isCollapsed ? 'collapsed' : ''}" onclick="toggleCat(${cat.id})">
             <span>${cat.name}
-              <span class="badge badge-count">${filteredItems.length}</span>
               ${lowCount ? `<span class="badge badge-danger">${lowCount} 부족</span>` : ''}
             </span>
             <span class="toggle-arrow ${isCollapsed ? 'collapsed' : ''}">&#9660;</span>
@@ -267,6 +269,7 @@
                     ${item.location ? `<div class="inv-location">${item.location}</div>` : ''}
                   </div>
                   <div class="inv-qty">
+                    <span class="current-label">현재</span>
                     <button class="qty-btn minus" onclick="quickAdjust(${item.id}, -1, event)">-</button>
                     <span class="qty-value ${item.low_stock ? 'low' : ''}">${item.quantity}</span>
                     <button class="qty-btn plus" onclick="quickAdjust(${item.id}, 1, event)">+</button>
@@ -355,4 +358,34 @@
   window.openTxModal = openTxModal;
   window.submitTransaction = submitTransaction;
   window.showHistory = showHistory;
+
+  // auto-init on DOM ready for pages including inventory elements (ensures admin/manage loads too)
+  if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        const hasInventory = document.getElementById('inventoryContainer') || document.getElementById('inventoryStatus') || document.getElementById('lowStockBody');
+        if (hasInventory) {
+          if (typeof loadStaff === 'function') loadStaff();
+          if (typeof loadInventory === 'function') loadInventory();
+          if (typeof loadSearchDropdown === 'function') loadSearchDropdown();
+          // ensure search input event is bound
+          const si = document.getElementById('searchInput');
+          if (si) {
+            si.removeAttribute('oninput');
+            si.addEventListener('input', onSearch);
+          }
+          // keyboard support for cat pills
+          const pillContainer = document.getElementById('catPills');
+          if (pillContainer) {
+            pillContainer.addEventListener('keydown', e => {
+              if (e.target && e.target.classList && e.target.classList.contains('cat-pill') && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                e.target.click();
+              }
+            });
+          }
+        }
+      } catch (e) {}
+    });
+  }
 })();

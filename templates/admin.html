@@ -36,6 +36,51 @@
                 <div class="note-header">인수인계 및 전달 사항</div>
                 <div class="note-readonly" id="adminHandoffNote">-</div>
             </div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn btn-accent btn-sm" onclick="showMessageModal()">메시지 보내기</button>
+                <button class="btn btn-accent-outline btn-sm" onclick="showMessageLogsModal()">메시지 로그</button>
+            </div>
+        </div>
+
+        <!-- Message Compose Modal -->
+        <div class="modal-overlay" id="messageModal">
+          <div class="modal">
+            <h3>메시지 전송</h3>
+            <div class="form-group">
+              <label>수신자</label>
+              <select id="messageRecipient" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></select>
+            </div>
+            <div class="form-group">
+              <label>내용</label>
+              <textarea id="messageContent" rows="6" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></textarea>
+            </div>
+            <div class="modal-actions">
+              <button class="btn btn-outline" onclick="closeModal('messageModal')">취소</button>
+              <button class="btn btn-primary" id="sendMessageBtn" onclick="sendMessage()">전송</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Message Logs Modal -->
+        <div class="modal-overlay" id="messageLogsModal">
+          <div class="modal">
+            <h3>메시지 로그</h3>
+            <div class="form-group">
+              <label>직원 (선택)</label>
+              <select id="logsRecipient" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px">
+                <option value="">전체</option>
+              </select>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+              <input type="date" id="logsStart" style="flex:1">
+              <input type="date" id="logsEnd" style="flex:1">
+            </div>
+            <div style="max-height:300px;overflow:auto;margin-top:8px;border-top:1px solid var(--border);padding-top:8px" id="messageLogsContainer">로그 없음</div>
+            <div class="modal-actions" style="margin-top:8px">
+              <button class="btn btn-outline" onclick="closeModal('messageLogsModal')">닫기</button>
+              <button class="btn btn-primary" onclick="fetchMessageLogs()">조회</button>
+            </div>
+          </div>
         </div>
     </div>
 </div>
@@ -410,6 +455,25 @@ async function loadDetail(shift) {
             html += `</div></div>`;
         });
         container.innerHTML = html;
+        (async function(){
+          try {
+            const d = viewDate ? viewDate.value : getResetIsoDate();
+            const [purchase, handoff] = await Promise.all([
+              api(`/api/notes/${shift}/purchase?date=${d}`),
+              api(`/api/notes/${shift}/handoff?date=${d}`)
+            ]);
+            const purEl = document.getElementById('adminPurchaseNote');
+            const hanEl = document.getElementById('adminHandoffNote');
+            if (purEl) purEl.textContent = (purchase && purchase.content) ? purchase.content : '-';
+            if (hanEl) hanEl.textContent = (handoff && handoff.content) ? handoff.content : '-';
+          } catch (e) {
+            console.error('load admin notes failed', e);
+            const purEl = document.getElementById('adminPurchaseNote');
+            const hanEl = document.getElementById('adminHandoffNote');
+            if (purEl) purEl.textContent = '-';
+            if (hanEl) hanEl.textContent = '-';
+          }
+        })();
         return;
     }
 
@@ -444,6 +508,26 @@ async function loadDetail(shift) {
         html += `</div></div>`;
     });
     container.innerHTML = html;
+    // load admin notes for selected date/shift
+    (async function(){
+      try {
+        const d = viewDate ? viewDate.value : getResetIsoDate();
+        const [purchase, handoff] = await Promise.all([
+          api(`/api/notes/${shift}/purchase?date=${d}`),
+          api(`/api/notes/${shift}/handoff?date=${d}`)
+        ]);
+        const purEl = document.getElementById('adminPurchaseNote');
+        const hanEl = document.getElementById('adminHandoffNote');
+        if (purEl) purEl.textContent = (purchase && purchase.content) ? purchase.content : '-';
+        if (hanEl) hanEl.textContent = (handoff && handoff.content) ? handoff.content : '-';
+      } catch (e) {
+        console.error('load admin notes failed', e);
+        const purEl = document.getElementById('adminPurchaseNote');
+        const hanEl = document.getElementById('adminHandoffNote');
+        if (purEl) purEl.textContent = '-';
+        if (hanEl) hanEl.textContent = '-';
+      }
+    })();
 }
 
 /* Inventory helpers (only used when inventory view active) */
@@ -619,6 +703,89 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 });
 
 /* Init based on active view (only call functions needed by that view) */
+
+// Messaging UI helpers (admin)
+async function populateMessageRecipients() {
+    const staff = await api('/api/staff') || [];
+    const sel = byId('messageRecipient');
+    const logsSel = byId('logsRecipient');
+    if (sel) sel.innerHTML = (staff || []).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    if (logsSel) logsSel.innerHTML = '<option value="">전체</option>' + (staff || []).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function showMessageModal(recipientId) {
+    populateMessageRecipients().then(() => {
+        if (recipientId && byId('messageRecipient')) byId('messageRecipient').value = recipientId;
+        if (byId('messageContent')) byId('messageContent').value = '';
+        // admin password input removed; authentication handled at page entry
+        const m = byId('messageModal');
+        if (m) { m.classList.add('show'); setTimeout(() => { if (byId('messageContent')) byId('messageContent').focus(); }, 80); }
+    });
+}
+
+function showMessageLogsModal() {
+    populateMessageRecipients();
+    // default date range: last 6 months to today (KST)
+    if (byId('logsStart') || byId('logsEnd')) {
+        const nowKst = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+        const end = new Date(nowKst.getFullYear(), nowKst.getMonth(), nowKst.getDate());
+        const start = new Date(end);
+        start.setMonth(start.getMonth() - 6);
+        const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        if (byId('logsStart')) byId('logsStart').value = iso(start);
+        if (byId('logsEnd')) byId('logsEnd').value = iso(end);
+    }
+    const m = byId('messageLogsModal');
+    if (m) { m.classList.add('show'); if (byId('messageLogsContainer')) byId('messageLogsContainer').innerHTML = '로그 없음'; }
+}
+
+async function sendMessage() {
+    const recipient = byId('messageRecipient') ? byId('messageRecipient').value : '';
+    const content = byId('messageContent') ? byId('messageContent').value.trim() : '';
+    // admin password field removed; session-based auth used
+    if (!recipient || !content) { showToast('수신자와 내용을 입력하세요', 'error'); return; }
+    const btn = byId('sendMessageBtn'); if (btn) btn.disabled = true;
+    try {
+        const date = (viewDate && viewDate.value) ? viewDate.value : getResetIsoDate();
+        const shift = currentDetailShift || 'day';
+        const res = await api('/api/messages', { method: 'POST', body: { recipient_id: recipient, date, shift, content }});
+        if (res && res.ok) {
+            showToast('메시지 전송됨');
+            closeModal('messageModal');
+        } else {
+            showToast(res && res.error ? res.error : '전송 실패', 'error');
+        }
+    } catch (e) {
+        showToast('서버 오류', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function fetchMessageLogs() {
+    const recipient = byId('logsRecipient') ? byId('logsRecipient').value : '';
+    const start = byId('logsStart') ? byId('logsStart').value : '';
+    const end = byId('logsEnd') ? byId('logsEnd').value : '';
+    const params = [];
+    if (recipient) params.push(`recipient_id=${encodeURIComponent(recipient)}`);
+    if (start) params.push(`start=${encodeURIComponent(start)}`);
+    if (end) params.push(`end=${encodeURIComponent(end)}`);
+    let q = '/api/messages/logs' + (params.length ? '?' + params.join('&') : '');
+    try {
+        const data = await api(q);
+        const container = byId('messageLogsContainer');
+        if (!container) return;
+        if (!Array.isArray(data) || data.length === 0) {
+            container.innerHTML = '<div style="color:var(--text-secondary)">로그 없음</div>';
+            return;
+        }
+        container.innerHTML = data.map(m => `<div style="padding:8px;border-bottom:1px solid var(--border)"><div style="font-weight:700">${m.sender_name || m.sender_id || '관리자'} → ${m.recipient_name || m.recipient_id || ''}</div><div style="white-space:pre-wrap;margin-top:6px">${m.content}</div><div style="font-size:0.85rem;color:var(--text-secondary);margin-top:6px">${m.date} ${m.created_at}</div></div>`).join('');
+    } catch (e) {
+        showToast('로그 조회 실패', 'error');
+    }
+}
+
+/* Init based on active view (only call functions needed by that view) */
 (function initAdmin() {
     const adminActive = "{{ active or 'checklist' }}";
 
@@ -651,6 +818,9 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
         loadLowStock();
         loadCategories();
         loadAllItems();
+        if (typeof loadStaff === 'function') loadStaff();
+        if (typeof loadInventory === 'function') loadInventory();
+        if (typeof loadSearchDropdown === 'function') loadSearchDropdown();
     } else if (adminActive === 'settings') {
         loadStaff();
         loadCategories();

@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
-from models import db, Staff, ChecklistItem, ChecklistLog, DailyNote, \
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from models import db, Staff, ChecklistItem, ChecklistLog, DailyNote, Message, \
     InventoryCategory, InventoryItem, InventoryTransaction, ShortageItem, ShortageCount
 from datetime import datetime, date, timedelta
 import os
 import json
 from zoneinfo import ZoneInfo
+from flask_socketio import SocketIO, join_room, leave_room
 
 KST = ZoneInfo("Asia/Seoul")
 def fmt_kst(dt, fmt='%m/%d %H:%M'):
@@ -19,12 +20,17 @@ def fmt_kst(dt, fmt='%m/%d %H:%M'):
             return None
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret')
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, 'instance', 'smp.db')
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
+
+# Initialize SocketIO for real-time messaging. If REDIS_URL is provided it will be used as the message queue.
+REDIS_URL = os.environ.get('REDIS_URL')
+socketio = SocketIO(app, message_queue=REDIS_URL, cors_allowed_origins="*", async_mode='eventlet')
 
 # Inject server_today (KST, reset hour 4) into templates and make available to client
 def get_server_today_iso():
@@ -454,6 +460,140 @@ def save_note(shift, note_type):
 
 # ─── Inventory API ───────────────────────────────────────
 
+# ─── Messages API & SocketIO ─────────────────────────────────────
+# Real-time messaging between admin and staff.
+
+@app.route('/api/messages', methods=['POST'])
+def post_message():
+    data = request.json or {}
+    # require admin session (login via /api/admin/login)
+    if not session.get('is_admin'):
+        return jsonify({'error': 'admin required'}), 401
+
+    try:
+        recipient_id = int(data['recipient_id'])
+    except Exception:
+        return jsonify({'error': 'recipient_id required'}), 400
+
+    target_date = date.fromisoformat(data.get('date', datetime.now(KST).date().isoformat()))
+    shift = data.get('shift', 'day')
+    content = (data.get('content') or '').strip()
+    if not content:
+        return jsonify({'error': 'content required'}), 400
+
+    sender_id = data.get('sender_id')
+    try:
+        sender_id = int(sender_id) if sender_id is not None else None
+    except:
+        sender_id = None
+
+    msg = Message(sender_id=sender_id, recipient_id=recipient_id, date=target_date, shift=shift, content=content, read_flag=False, created_at=datetime.now())
+    db.session.add(msg)
+    db.session.commit()
+
+    payload = {
+        'id': msg.id,
+        'recipient_id': msg.recipient_id,
+        'sender_id': msg.sender_id,
+        'sender_name': msg.sender.name if getattr(msg, 'sender', None) else '관리자',
+        'date': msg.date.isoformat(),
+        'shift': msg.shift,
+        'content': msg.content,
+        'created_at': fmt_kst(msg.created_at)
+    }
+
+    room = f'messages:{msg.date.isoformat()}:{msg.shift}:{msg.recipient_id}'
+    try:
+        socketio.emit('message', payload, room=room)
+    except Exception as e:
+        print("socket emit failed", e)
+
+    return jsonify({'ok': True, 'id': msg.id})
+
+@app.route('/api/messages/user')
+def get_user_messages():
+    recipient_id = request.args.get('recipient_id')
+    if not recipient_id:
+        return jsonify({'error': 'recipient_id required'}), 400
+    try:
+        rid = int(recipient_id)
+    except:
+        return jsonify({'error': 'invalid recipient_id'}), 400
+
+    target_date = request.args.get('date', datetime.now(KST).date().isoformat())
+    tdate = date.fromisoformat(target_date)
+    shift = request.args.get('shift')
+
+    q = Message.query.filter_by(recipient_id=rid, date=tdate)
+    if shift:
+        q = q.filter_by(shift=shift)
+
+    msgs = q.order_by(Message.created_at.asc()).all()
+    return jsonify([{
+        'id': m.id,
+        'sender_id': m.sender_id,
+        'sender_name': m.sender.name if m.sender else '관리자',
+        'content': m.content,
+        'read_flag': bool(m.read_flag),
+        'created_at': fmt_kst(m.created_at)
+    } for m in msgs])
+
+@app.route('/api/messages/logs')
+def get_message_logs():
+    # admin-only access via session
+    if not session.get('is_admin'):
+        return jsonify({'error': 'admin required'}), 401
+
+    recipient_id = request.args.get('recipient_id')
+    start = request.args.get('start')
+    end = request.args.get('end')
+
+    q = Message.query
+    if recipient_id:
+        try:
+            q = q.filter_by(recipient_id=int(recipient_id))
+        except:
+            pass
+    if start:
+        sdate = date.fromisoformat(start)
+        q = q.filter(Message.date >= sdate)
+    if end:
+        edate = date.fromisoformat(end)
+        q = q.filter(Message.date <= edate)
+
+    msgs = q.order_by(Message.created_at.desc()).limit(500).all()
+    return jsonify([{
+        'id': m.id,
+        'recipient_id': m.recipient_id,
+        'recipient_name': m.recipient.name if m.recipient else None,
+        'sender_id': m.sender_id,
+        'sender_name': m.sender.name if m.sender else None,
+        'date': m.date.isoformat(),
+        'shift': m.shift,
+        'content': m.content,
+        'read_flag': bool(m.read_flag),
+        'created_at': fmt_kst(m.created_at)
+    } for m in msgs])
+
+@app.route('/api/messages/<int:msg_id>/read', methods=['POST'])
+def mark_message_read(msg_id):
+    m = Message.query.get_or_404(msg_id)
+    m.read_flag = True
+    db.session.commit()
+    return jsonify({'ok': True})
+
+# SocketIO event handlers
+@socketio.on('join')
+def ws_join(data):
+    try:
+        rid = int(data.get('recipient_id'))
+        rdate = data.get('date')
+        rshift = data.get('shift')
+        room = f'messages:{rdate}:{rshift}:{rid}'
+        join_room(room)
+    except Exception as e:
+        print('join failed', e)
+
 @app.route('/api/inventory')
 def get_inventory():
     categories = InventoryCategory.query.order_by(InventoryCategory.sort_order).all()
@@ -666,7 +806,7 @@ def admin_login():
     """
     Simple admin authentication endpoint.
     Expects JSON: { "password": "<password>" }.
-    The expected password must be set in the ADMIN_PASSWORD environment variable.
+    Sets session['is_admin']=True on success.
     Special shortcuts:
       - '0000' : legacy admin access (admin dashboard /manage)
       - '9999' : shortages/inventory quick access (/manage/shortages)
@@ -677,16 +817,25 @@ def admin_login():
 
     # shortages shortcut -> limited access to shortages page
     if password == '9999':
+        session['is_admin'] = True
+        session['admin_role'] = 'shortages'
+        session.permanent = True
         return jsonify({'ok': True, 'role': 'shortages'})
 
     # legacy local admin shortcut -> full admin
     if password == '0000':
+        session['is_admin'] = True
+        session['admin_role'] = 'admin'
+        session.permanent = True
         return jsonify({'ok': True, 'role': 'admin'})
 
     # production admin password
     if not expected:
         return jsonify({'error': 'Admin password not configured'}), 500
     if password == expected:
+        session['is_admin'] = True
+        session['admin_role'] = 'admin'
+        session.permanent = True
         return jsonify({'ok': True, 'role': 'admin'})
 
     return jsonify({'error': 'Invalid password'}), 401
@@ -856,4 +1005,5 @@ with app.app_context():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    # Use SocketIO's runner for local development to enable websockets (eventlet)
+    socketio.run(app, host='0.0.0.0', port=port, debug=True)

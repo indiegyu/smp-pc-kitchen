@@ -227,19 +227,43 @@
         }
       });
       // make categories reorderable and items draggable between categories
+      // destroy existing prio Sortables (if any) before re-init
+      if (window.prioCatsSortable && typeof window.prioCatsSortable.destroy === 'function') {
+        try { window.prioCatsSortable.destroy(); console.debug && console.debug('Destroyed previous prioCatsSortable'); } catch (e) { console.error(e); }
+        window.prioCatsSortable = null;
+      }
+      if (window.prioItemSortables && Array.isArray(window.prioItemSortables)) {
+        window.prioItemSortables.forEach(s => { try { s && s.destroy && s.destroy(); } catch (e) {} });
+      }
+      window.prioItemSortables = [];
+
       loadSortable(()=>{
         const cardsContainer = byId('prioCards');
         if(cardsContainer){
-          new Sortable(cardsContainer, { handle: '.cat-drag', animation:150, draggable:'.cat-card', onEnd: async ()=> {
-            // persist category order
-            const order = Array.from(cardsContainer.querySelectorAll('.cat-card')).map(c => c.dataset.id).filter(id => id !== 'unassigned');
-            await ajaxApi('/api/checklist/priority-categories/reorder', { method:'POST', body:{ order }});
-            showToast && showToast('카테고리 순서 저장됨');
-            await renderPrioCategories();
-          }});
+          window.prioCatsSortable = new Sortable(cardsContainer, {
+            handle: '.cat-drag',
+            animation: 150,
+            draggable: '.prio-cat',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            onEnd: async (evt) => {
+              // persist category order (exclude unassigned)
+              const order = Array.from(cardsContainer.querySelectorAll('.prio-cat')).map(c => c.dataset.id).filter(id => id !== 'unassigned');
+              try {
+                await ajaxApi('/api/checklist/priority-categories/reorder', { method:'POST', body:{ order }});
+                showToast && showToast('카테고리 순서 저장됨');
+              } catch (err) {
+                showToast && showToast('카테고리 순서 저장 실패','error');
+              }
+              await renderPrioCategories();
+            }
+          });
+          console.debug && console.debug('init prioCatsSortable', cardsContainer, cardsContainer.querySelectorAll('.cat-drag'));
+        } else {
+          console.debug && console.debug('prioCards not found during Sortable init');
         }
         root.querySelectorAll('.item-list').forEach(ul=>{
-          new Sortable(ul, {
+          const s = new Sortable(ul, {
             group: 'prio',
             handle: '.drag-handle',
             animation: 150,
@@ -263,6 +287,8 @@
               }
             }
           });
+          window.prioItemSortables.push(s);
+          console.debug && console.debug('init prioItemSortable', ul, s);
         });
       });
     }
@@ -370,11 +396,26 @@
     render('checklistDay', day);
     render('checklistNight', night);
     updateMoveButtonStates();
+    // ensure Sortable is loaded then initialize checklist shift sortables
+    loadSortable(() => {
+      try {
+        setupChecklistSortables();
+        console.debug && console.debug('setupChecklistSortables invoked from renderChecklistLists');
+      } catch (e) {
+        console.error(e);
+      }
+    });
   }
 
   function setupChecklistSortables(){
     const dayEl = byId('checklistDay'); const nightEl = byId('checklistNight');
     if(!dayEl || !nightEl || !window.Sortable) return;
+    // destroy previous shift sortables if present
+    if (window.checklistShiftSortables) {
+      try { window.checklistShiftSortables.day && window.checklistShiftSortables.day.destroy && window.checklistShiftSortables.day.destroy(); } catch (e) {}
+      try { window.checklistShiftSortables.night && window.checklistShiftSortables.night.destroy && window.checklistShiftSortables.night.destroy(); } catch (e) {}
+    }
+    window.checklistShiftSortables = {};
     const onEnd = async function(evt){
       const movedId = evt.item.dataset.id;
       if(evt.to !== evt.from){
@@ -384,8 +425,9 @@
       await reorderChecklistShift('day'); await reorderChecklistShift('night');
       updateMoveButtonStates();
     };
-    new Sortable(dayEl, { group:'checklist', handle:'.drag-handle', animation:150, onEnd });
-    new Sortable(nightEl, { group:'checklist', handle:'.drag-handle', animation:150, onEnd });
+    window.checklistShiftSortables.day = new Sortable(dayEl, { group:'checklist', handle:'.drag-handle', animation:150, onEnd });
+    window.checklistShiftSortables.night = new Sortable(nightEl, { group:'checklist', handle:'.drag-handle', animation:150, onEnd });
+    console.debug && console.debug('setupChecklistSortables initialized', dayEl, nightEl);
   }
 
   async function reorderChecklistShift(shift){
