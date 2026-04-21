@@ -278,10 +278,8 @@ document.getElementById('adminAuthSubmit') && document.getElementById('adminAuth
   try {
     const res = await api('/api/admin/login', { method: 'POST', body: { password: pw }});
     if (res && res.ok) {
-      modalSelectedShift = modalSelectedShift || 'boss';
-      confirmStaff({ id: null, name: '사장님' });
-      const modal = document.getElementById('adminAuthModal');
-      if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
+      // on successful 사장님 auth, go to admin checklist
+      window.location.href = '/manage/checklist';
     } else {
       showToast(res && res.error ? res.error : '인증 실패','error');
     }
