@@ -214,18 +214,22 @@
 
         window.openMessagePanel = function() {
             const panel = document.getElementById('messagePanel');
+            console.log('[debug] openMessagePanel called', { panelExists: !!panel, wasOpen: panel ? panel.classList.contains('open') : null });
             if (!panel) return;
             panel.classList.toggle('open');
+            console.log('[debug] messagePanel toggled, isOpen:', panel.classList.contains('open'));
         };
 
         // fallback binding to ensure msgBell always toggles panel
         document.addEventListener('DOMContentLoaded', () => {
             const bell = document.getElementById('msgBell');
+            console.log('[debug] DOMContentLoaded: msgBell element:', bell);
             if (bell && typeof window.openMessagePanel === 'function') {
+                console.log('[debug] binding click to msgBell');
                 try {
                     bell.removeEventListener && bell.removeEventListener('click', window.openMessagePanel);
                 } catch(e){}
-                bell.addEventListener('click', (ev) => { ev.preventDefault(); window.openMessagePanel(); });
+                bell.addEventListener('click', (ev) => { ev.preventDefault(); console.log('[debug] msgBell clicked'); window.openMessagePanel(); });
             }
         });
     </script>
