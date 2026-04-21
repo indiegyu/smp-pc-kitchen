@@ -42,6 +42,22 @@
     </div>
 </div>
 
+<!-- Previous shift notes (shows only previous worker's notes: day<-night or night<-day(date-1)) -->
+<div id="prevShiftNotes" class="top-note prev-shift-notes" style="margin-top:8px;">
+    <div class="top-note-inner">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <div>
+                <div class="top-note-title">이전 근무자 전달사항</div>
+                <div id="prevShiftSubTitle" style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px;"></div>
+            </div>
+            <div>
+                <button class="btn btn-outline btn-sm" id="prevShiftToggle" onclick="togglePrevShiftNotes()" aria-expanded="true" title="닫기/열기">닫기</button>
+            </div>
+        </div>
+        <div id="prevShiftContent" style="padding-top:8px;color:var(--text);"></div>
+    </div>
+</div>
+
 <!-- Entry modal: pick shift (오전/오후) then staff -->
 <div id="entryModal" class="entry-modal" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="entry-modal-inner" role="document">
@@ -598,6 +614,77 @@ async function loadNotes() {
     ]);
     document.getElementById('purchaseNote').value = purchase.content;
     document.getElementById('handoffNote').value = handoff.content;
+
+    // Also load previous shift's notes summary (previous worker only)
+    try {
+        loadPrevShiftNotes();
+    } catch (e) {
+        console.error('loadPrevShiftNotes invoke failed', e);
+    }
+}
+
+/* Helpers for previous-shift note summary */
+function getPrevShiftFor(dateStr, shift) {
+    try {
+        const parts = (dateStr || getResetIsoDate()).split('-').map(Number);
+        const dt = new Date(parts[0], parts[1]-1, parts[2]);
+        if (shift === 'night') {
+            return { date: dateStr || getResetIsoDate(), shift: 'day' };
+        } else {
+            dt.setDate(dt.getDate() - 1);
+            const y = dt.getFullYear();
+            const m = String(dt.getMonth() + 1).padStart(2, '0');
+            const d = String(dt.getDate()).padStart(2, '0');
+            return { date: `${y}-${m}-${d}`, shift: 'night' };
+        }
+    } catch (e) {
+        return { date: dateStr || getResetIsoDate(), shift: (shift === 'night' ? 'day' : 'night') };
+    }
+}
+
+function escapeHtml(s) {
+    if (!s) return '';
+    return s.replace(/[&<>"']/g, function (c) {
+        return {'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c];
+    });
+}
+
+async function loadPrevShiftNotes() {
+    try {
+        const d = dateInput.value || getResetIsoDate();
+        const prev = getPrevShiftFor(d, currentShift);
+        const [purchase, handoff] = await Promise.all([
+            api(`/api/notes/${prev.shift}/purchase?date=${prev.date}`),
+            api(`/api/notes/${prev.shift}/handoff?date=${prev.date}`),
+        ]);
+        const container = document.getElementById('prevShiftContent');
+        const subTitle = document.getElementById('prevShiftSubTitle');
+        if (subTitle) subTitle.textContent = `${prev.date} ${prev.shift === 'day' ? '오전' : '오후'} 근무`;
+        if (!container) return;
+        let html = '';
+        const short = (s) => (s || '').replace(/\n+/g, ' ').trim().slice(0, 240) + ((s && s.length > 240) ? '…' : '');
+        if (purchase && purchase.content && purchase.content.trim()) {
+            html += `<div class="prev-note"><div class="prev-note-header" style="font-weight:700;margin-bottom:6px;">구매 재고 리스트</div><div class="prev-note-body" style="color:var(--text-secondary)">${escapeHtml(short(purchase.content))}</div></div>`;
+        }
+        if (handoff && handoff.content && handoff.content.trim()) {
+            html += `<div class="prev-note" style="margin-top:8px;"><div class="prev-note-header" style="font-weight:700;margin-bottom:6px;">인수인계 및 전달사항</div><div class="prev-note-body" style="color:var(--text-secondary)">${escapeHtml(short(handoff.content))}</div></div>`;
+        }
+        if (!html) {
+            html = `<div class="prev-note-empty" style="color:var(--text-secondary)">이전 근무자 전달사항이 없습니다</div>`;
+        }
+        container.innerHTML = html;
+    } catch (e) {
+        console.error('loadPrevShiftNotes failed', e);
+    }
+}
+
+function togglePrevShiftNotes() {
+    const el = document.getElementById('prevShiftNotes');
+    const btn = document.getElementById('prevShiftToggle');
+    if (!el || !btn) return;
+    const hidden = el.classList.toggle('collapsed');
+    btn.textContent = hidden ? '열기' : '닫기';
+    btn.setAttribute('aria-expanded', (!hidden).toString());
 }
 
 function autoSaveNote(type) {
@@ -662,55 +749,5 @@ loadStaff();
     }, 80);
 })();
 
-// Socket.IO client for real-time messages (joins room per staff/date/shift and shows alert on incoming messages)
-(function setupSocketClient(){
-    const script = document.createElement('script');
-    script.src = '/socket.io/socket.io.js';
-    script.onload = () => {
-        try {
-            const socket = io();
-
-            function joinMyRoom() {
-                const staffName = localStorage.getItem('smp_staff') || '';
-                if (!staffName) return;
-                // attempt to resolve staff id via API (best-effort)
-                api('/api/staff').then(list => {
-                    const st = (list || []).find(s => s.name === staffName);
-                    if (!st) return;
-                    const roomPayload = {
-                        recipient_id: st.id,
-                        date: (dateInput && dateInput.value) ? dateInput.value : getResetIsoDate(),
-                        shift: localStorage.getItem('smp_shift') || currentShift || 'day'
-                    };
-                    socket.emit('join', roomPayload);
-                }).catch(()=>{});
-            }
-
-            socket.on('connect', () => { joinMyRoom(); });
-
-            // re-join room whenever selection or date changes
-            window.addEventListener('storage', (e) => {
-                if (e.key === 'smp_staff' || e.key === 'smp_shift' || e.key === 'smp_selected_date') {
-                    joinMyRoom();
-                }
-            });
-
-            socket.on('message', (payload) => {
-                try {
-                    const p = payload || {};
-                    const from = p.sender_name || '관리자';
-                    const text = p.content || '';
-                    // simple popup alert for now
-                    alert(`[${from}] ${text}`);
-                    // auto-mark read if message id provided
-                    if (p.id) {
-                        api(`/api/messages/${p.id}/read`, { method: 'POST' }).catch(()=>{});
-                    }
-                } catch (e) {}
-            });
-        } catch (e) {}
-    };
-    document.head.appendChild(script);
-})();
 </script>
 {% endblock %}
