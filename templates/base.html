@@ -72,9 +72,14 @@
         }
 
         function api(url, options = {}) {
+            options = options || {};
             if (options.body && typeof options.body === 'object') {
                 options.body = JSON.stringify(options.body);
                 options.headers = { 'Content-Type': 'application/json', ...options.headers };
+            }
+            // ensure cookies/session are sent for same-origin requests
+            if (typeof options.credentials === 'undefined') {
+                options.credentials = 'same-origin';
             }
             return fetch(url, options).then(r => r.json());
         }
@@ -212,6 +217,17 @@
             if (!panel) return;
             panel.classList.toggle('open');
         };
+
+        // fallback binding to ensure msgBell always toggles panel
+        document.addEventListener('DOMContentLoaded', () => {
+            const bell = document.getElementById('msgBell');
+            if (bell && typeof window.openMessagePanel === 'function') {
+                try {
+                    bell.removeEventListener && bell.removeEventListener('click', window.openMessagePanel);
+                } catch(e){}
+                bell.addEventListener('click', (ev) => { ev.preventDefault(); window.openMessagePanel(); });
+            }
+        });
     </script>
     {% block scripts %}{% endblock %}
 </body>

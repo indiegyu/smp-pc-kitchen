@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from models import db, Staff, ChecklistItem, ChecklistLog, DailyNote, Message, \
     InventoryCategory, InventoryItem, InventoryTransaction, ShortageItem, ShortageCount
 from datetime import datetime, date, timedelta
@@ -20,6 +20,7 @@ def fmt_kst(dt, fmt='%m/%d %H:%M'):
             return None
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret')
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, 'instance', 'smp.db')
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -465,11 +466,9 @@ def save_note(shift, note_type):
 @app.route('/api/messages', methods=['POST'])
 def post_message():
     data = request.json or {}
-    password = data.get('password', '')
-    expected = os.environ.get('ADMIN_PASSWORD')
-    # allow legacy '0000' admin shortcut
-    if password != '0000' and (not expected or password != expected):
-        return jsonify({'error': 'Invalid admin password'}), 401
+    # require admin session (login via /api/admin/login)
+    if not session.get('is_admin'):
+        return jsonify({'error': 'admin required'}), 401
 
     try:
         recipient_id = int(data['recipient_id'])
@@ -541,11 +540,9 @@ def get_user_messages():
 
 @app.route('/api/messages/logs')
 def get_message_logs():
-    # admin-only access via password query param
-    password = request.args.get('password', '')
-    expected = os.environ.get('ADMIN_PASSWORD')
-    if password != '0000' and (not expected or password != expected):
-        return jsonify({'error': 'Invalid admin password'}), 401
+    # admin-only access via session
+    if not session.get('is_admin'):
+        return jsonify({'error': 'admin required'}), 401
 
     recipient_id = request.args.get('recipient_id')
     start = request.args.get('start')
@@ -809,7 +806,7 @@ def admin_login():
     """
     Simple admin authentication endpoint.
     Expects JSON: { "password": "<password>" }.
-    The expected password must be set in the ADMIN_PASSWORD environment variable.
+    Sets session['is_admin']=True on success.
     Special shortcuts:
       - '0000' : legacy admin access (admin dashboard /manage)
       - '9999' : shortages/inventory quick access (/manage/shortages)
@@ -820,16 +817,25 @@ def admin_login():
 
     # shortages shortcut -> limited access to shortages page
     if password == '9999':
+        session['is_admin'] = True
+        session['admin_role'] = 'shortages'
+        session.permanent = True
         return jsonify({'ok': True, 'role': 'shortages'})
 
     # legacy local admin shortcut -> full admin
     if password == '0000':
+        session['is_admin'] = True
+        session['admin_role'] = 'admin'
+        session.permanent = True
         return jsonify({'ok': True, 'role': 'admin'})
 
     # production admin password
     if not expected:
         return jsonify({'error': 'Admin password not configured'}), 500
     if password == expected:
+        session['is_admin'] = True
+        session['admin_role'] = 'admin'
+        session.permanent = True
         return jsonify({'ok': True, 'role': 'admin'})
 
     return jsonify({'error': 'Invalid password'}), 401

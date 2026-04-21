@@ -710,6 +710,7 @@ loadStaff();
     loadChecklist();
     loadNotes();
     loadSummaryStrip();
+    try { refreshMsgBadge(); } catch(e){}
 })();
 
 // restore UI prefs (top-note + priority collapsed state)
@@ -813,10 +814,8 @@ loadStaff();
             socket.on('message', (payload) => {
                 try {
                     showMessagePanel(payload);
-                    // also auto-mark read if id provided (best-effort)
-                    if (payload && payload.id) {
-                        api(`/api/messages/${payload.id}/read`, { method: 'POST' }).catch(()=>{});
-                    }
+                    // increment unread badge (do not auto-mark read here)
+                    try { incrementUnreadBadge(1); } catch(e){}
                 } catch (e) {}
             });
         } catch (e) {}
@@ -824,7 +823,84 @@ loadStaff();
     document.head.appendChild(script);
 })();
 
-// Ensure '사장님' entry button reliably opens admin modal (fallback binding)
+/* Message badge & inbox helpers (public) */
+async function getMyStaffId() {
+    try {
+        const staff = await api('/api/staff') || [];
+        const name = localStorage.getItem('smp_staff') || '';
+        const st = (staff || []).find(s => s.name === name);
+        return st ? st.id : null;
+    } catch (e) { return null; }
+}
+
+async function refreshMsgBadge() {
+    const id = await getMyStaffId();
+    const badge = document.getElementById('msgBellCount');
+    if (!badge) return;
+    if (!id) { badge.style.display = 'none'; return; }
+    try {
+        const date = (dateInput && dateInput.value) ? dateInput.value : getResetIsoDate();
+        const msgs = await api(`/api/messages/user?recipient_id=${id}&date=${date}`);
+        const unread = (msgs || []).filter(m => !m.read_flag).length;
+        if (unread > 0) {
+            badge.textContent = unread;
+            badge.classList.add('unread');
+            badge.style.display = 'inline-block';
+        } else {
+            badge.textContent = '';
+            badge.classList.remove('unread');
+            badge.style.display = 'none';
+        }
+    } catch (e) { /* ignore */ }
+}
+
+function incrementUnreadBadge(delta) {
+    try {
+        const badge = document.getElementById('msgBellCount');
+        if (!badge) return;
+        const current = Number(badge.textContent) || 0;
+        const next = Math.max(0, current + (delta || 1));
+        if (next > 0) {
+            badge.textContent = next;
+            badge.classList.add('unread');
+            badge.style.display = 'inline-block';
+        } else {
+            badge.textContent = '';
+            badge.classList.remove('unread');
+            badge.style.display = 'none';
+        }
+    } catch (e) {}
+}
+
+async function loadMessagesForMe() {
+    const id = await getMyStaffId();
+    if (!id) return;
+    const date = (dateInput && dateInput.value) ? dateInput.value : getResetIsoDate();
+    const msgs = await api(`/api/messages/user?recipient_id=${id}&date=${date}`);
+    const panel = document.getElementById('messagePanel');
+    if (!panel) return;
+    panel.innerHTML = '';
+    if (!msgs || msgs.length === 0) {
+        panel.innerHTML = '<div class="message"><div class="from">시스템</div><div class="content">메시지 없음</div></div>';
+        refreshMsgBadge();
+        return;
+    }
+    msgs.forEach(m => {
+        const el = document.createElement('div');
+        el.className = 'message';
+        el.dataset.mid = m.id;
+        el.innerHTML = `<div class="from">${m.sender_name || '관리자'}</div><div class="content">${m.content}</div><div class="actions"><button class="btn btn-sm btn-primary" data-action="ack">확인</button></div>`;
+        panel.appendChild(el);
+        el.querySelector('[data-action="ack"]').addEventListener('click', async () => {
+            await api(`/api/messages/${m.id}/read`, { method: 'POST' }).catch(()=>{});
+            el.remove();
+            await refreshMsgBadge();
+        });
+    });
+    refreshMsgBadge();
+}
+
+/* Ensure '사장님' entry button reliably opens admin modal (fallback binding) */
 (function bindBossEntryButton(){
     function openAdmin() {
         try {
@@ -841,6 +917,22 @@ loadStaff();
         // also provide quick visual feedback
         b.addEventListener('click', () => { showToast('사장님 인증 모달을 엽니다', 'success'); });
     });
+
+    // also bind msgBell to load inbox when panel opens
+    const bell = document.getElementById('msgBell');
+    if (bell) {
+        bell.addEventListener('click', () => {
+            setTimeout(() => {
+                const panel = document.getElementById('messagePanel');
+                if (panel && panel.classList.contains('open')) {
+                    loadMessagesForMe();
+                }
+            }, 80);
+        });
+    }
+
+    // initial badge refresh
+    setTimeout(() => { refreshMsgBadge(); }, 300);
 })();
 </script>
 {% endblock %}
