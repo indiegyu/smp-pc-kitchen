@@ -815,6 +815,16 @@ input[type="date"]:focus { border-color: var(--primary); }
     pointer-events: auto;
 }
 
+/* Ensure admin modal appears above entry modal */
+.modal-overlay#adminModal {
+    z-index: 3001 !important;
+}
+
+/* Force card headers to use white background */
+.card-header {
+    background: #ffffff !important;
+}
+
 .modal {
     background: var(--surface);
     border-radius: 16px;

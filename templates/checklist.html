@@ -630,7 +630,6 @@ async function loadNotes() {
                   <div class="note-header">구매 재고 리스트</div>
                   <div class="note-readonly" id="prevPurchase"></div>
                   <div style="text-align:right;margin-top:8px;">
-                    <button class="btn btn-sm btn-outline" id="copyPrevPurchaseBtn">내 노트로 복사</button>
                     <button class="btn btn-sm btn-primary" id="sendPrevPurchaseBtn">메시지로 전송</button>
                   </div>
                 </div>
@@ -638,7 +637,6 @@ async function loadNotes() {
                   <div class="note-header">인수인계 및 전달 사항</div>
                   <div class="note-readonly" id="prevHandoff"></div>
                   <div style="text-align:right;margin-top:8px;">
-                    <button class="btn btn-sm btn-outline" id="copyPrevHandoffBtn">내 노트로 복사</button>
                     <button class="btn btn-sm btn-primary" id="sendPrevHandoffBtn">메시지로 전송</button>
                   </div>
                 </div>
@@ -652,9 +650,7 @@ async function loadNotes() {
         if (prevPurchaseEl) prevPurchaseEl.textContent = prevPurchase.content || '';
         if (prevHandoffEl) prevHandoffEl.textContent = prevHandoff.content || '';
 
-        document.getElementById('copyPrevPurchaseBtn').addEventListener('click', () => { copyPrevToMy('purchase', prevPurchase.content); });
-        document.getElementById('copyPrevHandoffBtn').addEventListener('click', () => { copyPrevToMy('handoff', prevHandoff.content); });
-        document.getElementById('sendPrevPurchaseBtn').addEventListener('click', () => { sendPrevNoteAsMessage(prevDate, prevShift, prevPurchase.content); });
+                        document.getElementById('sendPrevPurchaseBtn').addEventListener('click', () => { sendPrevNoteAsMessage(prevDate, prevShift, prevPurchase.content); });
         document.getElementById('sendPrevHandoffBtn').addEventListener('click', () => { sendPrevNoteAsMessage(prevDate, prevShift, prevHandoff.content); });
     } else {
         card.style.display = 'none';
@@ -675,14 +671,6 @@ async function saveNote(type) {
     });
 }
 
-/* Helpers for previous-shift actions */
-function copyPrevToMy(type, content) {
-    const el = document.getElementById(type === 'purchase' ? 'purchaseNote' : 'handoffNote');
-    if (!el) return;
-    el.value = content || '';
-    saveNote(type);
-    showToast('내 노트로 복사되었습니다', 'success');
-}
 
 async function sendPrevNoteAsMessage(prevDate, prevShift, content) {
     if (!content || !content.trim()) { showToast('보낼 내용이 없습니다', 'error'); return; }
@@ -809,16 +797,11 @@ loadStaff();
                     el.className = 'message';
                     el.dataset.mid = id;
                     el.innerHTML = `<div class="from">${from}</div><div class="content">${text}</div><div class="actions">
-                        <button class="btn btn-sm btn-outline" data-action="copy">복사</button>
                         <button class="btn btn-sm btn-primary" data-action="ack">확인</button>
                     </div>`;
                     panel.prepend(el);
                     // copy action
-                    el.querySelector('[data-action="copy"]').addEventListener('click', () => {
-                        try { navigator.clipboard.writeText(text); showToast('복사됨', 'success'); }
-                        catch (e) { showToast('복사 실패', 'error'); }
-                    });
-                    // ack action marks read and removes panel
+                                        // ack action marks read and removes panel
                     el.querySelector('[data-action="ack"]').addEventListener('click', async () => {
                         if (p.id) {
                             await api(`/api/messages/${p.id}/read`, { method: 'POST' }).catch(()=>{});
