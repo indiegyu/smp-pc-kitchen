@@ -41,54 +41,51 @@
 </div>
 
 <!-- Admin quick actions: 메시지 보내기 / 메시지 로그 -->
-<div class="card" style="margin-top:12px">
-  <div class="card-body" style="padding:16px; display:flex; gap:8px; align-items:center; justify-content:flex-start;">
-    <button id="openSendMsgBtn" class="btn btn-primary btn-sm">메시지 보내기</button>
-    <button id="openMsgLogsBtn" class="btn btn-outline btn-sm">메시지 로그</button>
-    <div style="margin-left:auto;color:var(--text-secondary);font-size:0.9rem">관리자 전용 기능</div>
-  </div>
-</div>
-
-<!-- Send Message Modal -->
-<div id="sendMessageModal" class="modal-overlay" aria-hidden="true" style="display:none;">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sendMessageTitle">
-    <h3 id="sendMessageTitle">근무자에게 메시지 보내기</h3>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
-      <label>수신자</label>
-      <select id="sendMsgRecipient" style="min-width:200px;padding:6px;border-radius:6px;border:1px solid var(--border)"></select>
-      <label>근무일</label>
-      <input id="sendMsgDate" type="date" value="{{ server_today }}">
-      <label>근무</label>
-      <select id="sendMsgShift"><option value="day">오전</option><option value="night">오후</option></select>
-      <label>내용</label>
-      <textarea id="sendMsgContent" rows="4" style="width:100%;"></textarea>
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
-      <button type="button" id="sendMsgCancel" class="btn btn-outline">취소</button>
-      <button type="button" id="sendMsgSubmit" class="btn btn-primary">전송</button>
-    </div>
-  </div>
-</div>
-
-<!-- Message Logs Modal -->
-<div id="messageLogsModal" class="modal-overlay" aria-hidden="true" style="display:none;">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="messageLogsTitle">
-    <h3 id="messageLogsTitle">메시지 로그</h3>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
-      <label style="white-space:nowrap">수신자</label>
-      <select id="logsRecipient" style="min-width:200px;padding:6px;border-radius:6px;border:1px solid var(--border)"></select>
-      <label style="white-space:nowrap">기간(시작)</label>
-      <input id="logsStart" type="date" value="">
-      <label style="white-space:nowrap">기간(종료)</label>
-      <input id="logsEnd" type="date" value="">
-      <button id="loadLogsBtn" class="btn btn-outline btn-sm">조회</button>
-    </div>
-    <div id="logsContainer" style="margin-top:12px;max-height:50vh;overflow:auto;border-top:1px solid var(--border);padding-top:8px;"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
-      <button type="button" id="closeLogsBtn" class="btn btn-outline">닫기</button>
-    </div>
-  </div>
-</div>
+  <div class="card" style="margin-top:12px">
+   <div class="card-body" style="padding:16px; display:flex; gap:8px; align-items:center; justify-content:flex-start;">
+     <button type="button" id="openSendMsgBtn" class="btn btn-primary btn-sm">메시지 보내기</button>
+     <button type="button" id="openMsgLogsBtn" class="btn btn-outline btn-sm">메시지 로그</button>
+     <div style="margin-left:auto;color:var(--text-secondary);font-size:0.9rem">관리자 전용 기능</div>
+   </div>
+ </div>
+ 
+ <!-- Send Message Modal -->
+ <div id="sendMessageModal" class="modal-overlay" aria-hidden="true" style="display:none;">
+   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sendMessageTitle">
+     <h3 id="sendMessageTitle">근무자에게 메시지 보내기</h3>
+     <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+       <label>수신자</label>
+       <select id="sendMsgRecipient" style="min-width:200px;padding:6px;border-radius:6px;border:1px solid var(--border)"></select>
+       <label>내용</label>
+       <textarea id="sendMsgContent" rows="4" style="width:100%;"></textarea>
+       <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:6px">이 메시지는 근무일/근무타임과 무관하게 해당 근무자에게 전달됩니다.</div>
+     </div>
+     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+       <button type="button" id="sendMsgCancel" class="btn btn-outline">취소</button>
+       <button type="button" id="sendMsgSubmit" class="btn btn-primary">전송</button>
+     </div>
+   </div>
+ </div>
+ 
+ <!-- Message Logs Modal -->
+ <div id="messageLogsModal" class="modal-overlay" aria-hidden="true" style="display:none;">
+   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="messageLogsTitle">
+     <h3 id="messageLogsTitle">메시지 로그</h3>
+     <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+       <label style="white-space:nowrap">수신자</label>
+       <select id="logsRecipient" style="min-width:200px;padding:6px;border-radius:6px;border:1px solid var(--border)"></select>
+       <label style="white-space:nowrap">기간(시작)</label>
+       <input id="logsStart" type="date" value="">
+       <label style="white-space:nowrap">기간(종료)</label>
+       <input id="logsEnd" type="date" value="">
+       <button id="loadLogsBtn" class="btn btn-outline btn-sm">조회</button>
+     </div>
+     <div id="logsContainer" style="margin-top:12px;max-height:50vh;overflow:auto;border-top:1px solid var(--border);padding-top:8px;"></div>
+     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+       <button type="button" id="closeLogsBtn" class="btn btn-outline">닫기</button>
+     </div>
+   </div>
+ </div>
 
 {% endif %}
 
@@ -782,19 +779,16 @@ async function loadStaffInto(selectId) {
 
 document.getElementById('openSendMsgBtn') && document.getElementById('openSendMsgBtn').addEventListener('click', async () => {
   await loadStaffInto('sendMsgRecipient');
-  const dateEl = document.getElementById('sendMsgDate');
-  if (dateEl && !dateEl.value) dateEl.value = window.server_today || '';
   showModal('sendMessageModal');
 });
 document.getElementById('sendMsgCancel') && document.getElementById('sendMsgCancel').addEventListener('click', () => hideModal('sendMessageModal'));
 document.getElementById('sendMsgSubmit') && document.getElementById('sendMsgSubmit').addEventListener('click', async () => {
   const rid = document.getElementById('sendMsgRecipient').value;
-  const date = document.getElementById('sendMsgDate').value || window.server_today;
-  const shift = document.getElementById('sendMsgShift').value || 'day';
   const content = document.getElementById('sendMsgContent').value || '';
   if (!rid || !content.trim()) { showToast('수신자와 내용을 입력하세요','error'); return; }
   try {
-    const res = await api('/api/messages', { method: 'POST', body: { recipient_id: Number(rid), date, shift, content }});
+    // admin-originated sends are global (date/shift independent)
+    const res = await api('/api/messages', { method: 'POST', body: { recipient_id: Number(rid), content, is_global: true }});
     if (res && res.ok) {
       showToast('메시지 전송 완료','success');
       hideModal('sendMessageModal');
@@ -806,15 +800,23 @@ document.getElementById('sendMsgSubmit') && document.getElementById('sendMsgSubm
     showToast('서버 오류','error');
   }
 });
-
+ 
 /* Message logs */
 document.getElementById('openMsgLogsBtn') && document.getElementById('openMsgLogsBtn').addEventListener('click', async () => {
   await loadStaffInto('logsRecipient');
-  const start = document.getElementById('logsStart');
-  const end = document.getElementById('logsEnd');
-  if (start && !start.value) start.value = '';
-  if (end && !end.value) end.value = window.server_today || '';
+  const startEl = document.getElementById('logsStart');
+  const endEl = document.getElementById('logsEnd');
+  const endVal = window.server_today || getResetIsoDate();
+  if (endEl) endEl.value = endVal;
+  if (startEl) {
+    const ed = new Date(endVal);
+    const st = new Date(ed);
+    st.setDate(ed.getDate() - 29); // last 30 days
+    startEl.value = st.toISOString().slice(0,10);
+  }
   showModal('messageLogsModal');
+  // auto-load logs for the default range
+  document.getElementById('loadLogsBtn') && document.getElementById('loadLogsBtn').click();
 });
 document.getElementById('closeLogsBtn') && document.getElementById('closeLogsBtn').addEventListener('click', () => hideModal('messageLogsModal'));
 document.getElementById('loadLogsBtn') && document.getElementById('loadLogsBtn').addEventListener('click', async () => {

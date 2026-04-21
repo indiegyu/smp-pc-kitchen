@@ -53,7 +53,7 @@ class DailyNote(db.Model):
     )
 
 class Message(db.Model):
-    """Messages sent from admin to staff for a given date/shift."""
+    """Messages sent from admin to staff for a given date/shift. If is_global is True, the message is not tied to a specific date/shift."""
     __tablename__ = 'messages'
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=True)
@@ -62,8 +62,9 @@ class Message(db.Model):
     shift = db.Column(db.String(10), nullable=False)  # 'day' or 'night'
     content = db.Column(db.Text, nullable=False)
     read_flag = db.Column(db.Boolean, default=False)
+    is_global = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
-
+ 
     sender = db.relationship('Staff', foreign_keys=[sender_id], backref='sent_messages')
     recipient = db.relationship('Staff', foreign_keys=[recipient_id], backref='received_messages')
 

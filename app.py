@@ -5,6 +5,7 @@ from datetime import datetime, date, timedelta
 import os
 import json
 from zoneinfo import ZoneInfo
+from sqlalchemy import or_, and_
 from flask_socketio import SocketIO, join_room, leave_room
 
 KST = ZoneInfo("Asia/Seoul")
@@ -480,8 +481,23 @@ def post_message():
     except Exception:
         return jsonify({'error': 'recipient_id required'}), 400
 
-    target_date = date.fromisoformat(data.get('date', datetime.now(KST).date().isoformat()))
-    shift = data.get('shift', 'day')
+    is_global = bool(data.get('is_global', False))
+
+    # determine date/shift; global messages are stored but treated as date/shift independent
+    if is_global:
+        # prefer explicit date if provided, otherwise use server's current date
+        if data.get('date'):
+            try:
+                target_date = date.fromisoformat(data.get('date'))
+            except:
+                target_date = datetime.now(KST).date()
+        else:
+            target_date = datetime.now(KST).date()
+        shift = data.get('shift') or 'any'
+    else:
+        target_date = date.fromisoformat(data.get('date', datetime.now(KST).date().isoformat()))
+        shift = data.get('shift', 'day')
+
     content = (data.get('content') or '').strip()
     if not content:
         return jsonify({'error': 'content required'}), 400
@@ -492,7 +508,7 @@ def post_message():
     except:
         sender_id = None
 
-    msg = Message(sender_id=sender_id, recipient_id=recipient_id, date=target_date, shift=shift, content=content, read_flag=False, created_at=datetime.now())
+    msg = Message(sender_id=sender_id, recipient_id=recipient_id, date=target_date, shift=shift, content=content, read_flag=False, is_global=is_global, created_at=datetime.now())
     db.session.add(msg)
     db.session.commit()
 
@@ -503,6 +519,7 @@ def post_message():
         'sender_name': msg.sender.name if getattr(msg, 'sender', None) else '관리자',
         'date': msg.date.isoformat(),
         'shift': msg.shift,
+        'is_global': bool(msg.is_global),
         'content': msg.content,
         'created_at': fmt_kst(msg.created_at)
     }
@@ -530,29 +547,44 @@ def get_user_messages():
     start = request.args.get('start')
     end = request.args.get('end')
 
-    q = Message.query.filter_by(recipient_id=rid)
+    q = Message.query.filter(Message.recipient_id == rid)
+
+    # Build date/shift condition while preserving is_global messages
+    date_cond = None
     if date_param:
         try:
             tdate = date.fromisoformat(date_param)
-            q = q.filter_by(date=tdate)
+            if shift:
+                date_cond = and_(Message.date == tdate, Message.shift == shift)
+            else:
+                date_cond = (Message.date == tdate)
         except:
-            pass
+            date_cond = None
     else:
+        conds = []
         if start:
             try:
                 sdate = date.fromisoformat(start)
-                q = q.filter(Message.date >= sdate)
+                conds.append(Message.date >= sdate)
             except:
                 pass
         if end:
             try:
                 edate = date.fromisoformat(end)
-                q = q.filter(Message.date <= edate)
+                conds.append(Message.date <= edate)
             except:
                 pass
+        if conds:
+            date_cond = and_(*conds) if len(conds) > 1 else conds[0]
+            if shift:
+                date_cond = and_(date_cond, Message.shift == shift)
 
-    if shift:
-        q = q.filter_by(shift=shift)
+    if date_cond is not None:
+        q = q.filter(or_(Message.is_global == True, date_cond))
+    else:
+        if shift:
+            q = q.filter(or_(Message.is_global == True, Message.shift == shift))
+        # otherwise leave as all recipient messages
 
     msgs = q.order_by(Message.created_at.asc()).limit(1000).all()
     return jsonify([{
@@ -560,6 +592,7 @@ def get_user_messages():
         'sender_id': m.sender_id,
         'sender_name': m.sender.name if m.sender else '관리자',
         'content': m.content,
+        'is_global': bool(m.is_global),
         'read_flag': bool(m.read_flag),
         'created_at': fmt_kst(m.created_at)
     } for m in msgs])
@@ -576,18 +609,45 @@ def get_message_logs():
     start = request.args.get('start')
     end = request.args.get('end')
 
+    # default to last 30 days if no range provided
+    if not start and not end:
+        ed = datetime.now(KST).date()
+        st = ed - timedelta(days=29)
+        start = st.isoformat()
+        end = ed.isoformat()
+
     q = Message.query
     if recipient_id:
         try:
-            q = q.filter_by(recipient_id=int(recipient_id))
+            q = q.filter(Message.recipient_id == int(recipient_id))
         except:
             pass
-    if start:
-        sdate = date.fromisoformat(start)
-        q = q.filter(Message.date >= sdate)
-    if end:
-        edate = date.fromisoformat(end)
-        q = q.filter(Message.date <= edate)
+
+    # build date condition and include global messages
+    date_cond = None
+    if start and end:
+        try:
+            sdate = date.fromisoformat(start)
+            edate = date.fromisoformat(end)
+            date_cond = and_(Message.date >= sdate, Message.date <= edate)
+        except:
+            date_cond = None
+    else:
+        if start:
+            try:
+                sdate = date.fromisoformat(start)
+                date_cond = Message.date >= sdate
+            except:
+                pass
+        if end and date_cond is None:
+            try:
+                edate = date.fromisoformat(end)
+                date_cond = Message.date <= edate
+            except:
+                pass
+
+    if date_cond is not None:
+        q = q.filter(or_(Message.is_global == True, date_cond))
 
     msgs = q.order_by(Message.created_at.desc()).limit(500).all()
     return jsonify([{
@@ -598,6 +658,7 @@ def get_message_logs():
         'sender_name': m.sender.name if m.sender else None,
         'date': m.date.isoformat(),
         'shift': m.shift,
+        'is_global': bool(m.is_global),
         'content': m.content,
         'read_flag': bool(m.read_flag),
         'created_at': fmt_kst(m.created_at)
