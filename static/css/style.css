@@ -880,6 +880,37 @@ input[type="date"]:focus { border-color: var(--primary); }
 .toast.success { background: var(--success); color: white; }
 .toast.error { background: var(--danger); color: white; }
 
+/* ─── Message panel (non-blocking real-time messages) ───────────────── */
+.message-panel {
+    position: fixed;
+    top: 72px;
+    right: 12px;
+    width: 320px;
+    max-width: calc(100% - 24px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 320;
+    pointer-events: none;
+}
+.message-panel .message {
+    pointer-events: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 12px;
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.message-panel .message .from { font-weight: 700; font-size: 0.9rem; color: var(--text); }
+.message-panel .message .content { font-size: 0.9rem; color: var(--text-secondary); white-space: pre-wrap; }
+.message-panel .message .actions { display: flex; gap: 8px; justify-content: flex-end; }
+@media (max-width: 600px) {
+    .message-panel { right: 8px; left: 8px; top: 64px; width: auto; max-width: none; }
+}
+
 /* ─── Collapse & Toggle Arrows (unified) ───────────────────────────── */
 .collapse-arrow, .toggle-arrow {
     transition: transform 0.2s;
