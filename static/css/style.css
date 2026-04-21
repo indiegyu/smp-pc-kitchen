@@ -50,7 +50,8 @@ body {
     color: var(--primary);
 }
 
-.nav-links { display: flex; gap: 4px; }
+.nav-links { display: flex; gap: 4px; margin-left: auto; margin-right: 8px; align-items: center; }
+.nav-actions { display: flex; align-items: center; gap: 8px; margin-left: 8px; }
 
 .nav-link {
     text-decoration: none;
@@ -825,6 +826,20 @@ input[type="date"]:focus { border-color: var(--primary); }
     background: #ffffff !important;
 }
 
+/* Public page overrides: neutralize .btn.btn-sm.btn-primary and badge-count appearance */
+body:not(.admin) .btn.btn-sm.btn-primary {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: none !important;
+}
+body:not(.admin) .badge-count {
+    background: #ffffff !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: none !important;
+}
+
 .modal {
     background: var(--surface);
     border-radius: 16px;
@@ -902,6 +917,16 @@ input[type="date"]:focus { border-color: var(--primary); }
     gap: 10px;
     z-index: 320;
     pointer-events: none;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    max-height: 70vh;
+    overflow: auto;
+}
+.message-panel.open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
 }
 .message-panel .message {
     pointer-events: auto;
@@ -917,6 +942,15 @@ input[type="date"]:focus { border-color: var(--primary); }
 .message-panel .message .from { font-weight: 700; font-size: 0.9rem; color: var(--text); }
 .message-panel .message .content { font-size: 0.9rem; color: var(--text-secondary); white-space: pre-wrap; }
 .message-panel .message .actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* make prevMeta/badge transparent */
+#prevMeta, #previousShiftCard .badge-count {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    color: var(--text-secondary) !important;
+}
+
 @media (max-width: 600px) {
     .message-panel { right: 8px; left: 8px; top: 64px; width: auto; max-width: none; }
 }
