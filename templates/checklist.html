@@ -624,7 +624,7 @@ async function loadNotes() {
         card.style.display = 'block';
         card.innerHTML = `
             <div class="card">
-              <div class="card-header">이전 근무 전달사항 <span class="badge-count" id="prevMeta"></span></div>
+              <div class="card-header">이전 근무 전달사항 <span class="badge-count" id="prevMeta"></span><span class="collapse-arrow collapsed">▾</span></div>
               <div class="card-body">
                 <div style="margin-bottom:10px;">
                   <div class="note-header">구매 재고 리스트</div>
@@ -649,7 +649,14 @@ async function loadNotes() {
         const bodyEl = card.querySelector('.card-body');
         if (headerEl && bodyEl) {
             headerEl.style.cursor = 'pointer';
-            headerEl.addEventListener('click', () => { bodyEl.classList.toggle('collapsed'); });
+            const arrowEl = headerEl.querySelector('.collapse-arrow');
+            headerEl.setAttribute('role','button');
+            headerEl.setAttribute('aria-expanded', (!bodyEl.classList.contains('collapsed')).toString());
+            headerEl.addEventListener('click', () => {
+                const collapsed = bodyEl.classList.toggle('collapsed');
+                if (arrowEl) arrowEl.classList.toggle('collapsed', collapsed);
+                headerEl.setAttribute('aria-expanded', (!collapsed).toString());
+            });
         }
     } else {
         card.style.display = 'none';
@@ -750,11 +757,12 @@ loadStaff();
     }
 })();
 
-// Socket.IO client for real-time messages (joins room per staff/date/shift and shows non-blocking panel on incoming messages)
+/* Socket.IO client for real-time messages (joins room per staff/date/shift and shows non-blocking panel on incoming messages)
+   - Adds CDN fallback if the local /socket.io/socket.io.js is not served.
+   - When inbox is open, refresh the full message list instead of creating a transient duplicate.
+   - Deduplicates messages in the panel and makes notifications persistent (no auto-dismiss). */
 (function setupSocketClient(){
-    const script = document.createElement('script');
-    script.src = '/socket.io/socket.io.js';
-    script.onload = () => {
+    function initSocket() {
         try {
             const socket = io();
 
@@ -791,6 +799,8 @@ loadStaff();
                     const id = p.id || ('m_' + Date.now());
                     const panel = document.getElementById('messagePanel');
                     if (!panel) return;
+                    // dedupe by message id
+                    if (panel.querySelector(`[data-mid="${id}"]`)) return;
                     const el = document.createElement('div');
                     el.className = 'message';
                     el.dataset.mid = id;
@@ -798,27 +808,56 @@ loadStaff();
                         <button class="btn btn-sm btn-primary" data-action="ack">확인</button>
                     </div>`;
                     panel.prepend(el);
-                    // copy action
-                                        // ack action marks read and removes panel
+                    // ack action marks read and removes panel, then refresh badge
                     el.querySelector('[data-action="ack"]').addEventListener('click', async () => {
                         if (p.id) {
                             await api(`/api/messages/${p.id}/read`, { method: 'POST' }).catch(()=>{});
                         }
                         el.remove();
+                        try { await refreshMsgBadge(); } catch(e){}
                     });
-                    // auto-dismiss after 12s
-                    setTimeout(() => { if (el && el.parentNode) el.remove(); }, 12000);
+                    // persistent UI: do not auto-dismiss here so user can read later
                 } catch (e) {}
             }
 
             socket.on('message', (payload) => {
                 try {
-                    showMessagePanel(payload);
-                    // increment unread badge (do not auto-mark read here)
-                    try { incrementUnreadBadge(1); } catch(e){}
+                    const panel = document.getElementById('messagePanel');
+                    if (panel && panel.classList.contains('open')) {
+                        // If inbox is open, reload the inbox to show the authoritative list
+                        try { loadMessagesForMe(); } catch(e) { showMessagePanel(payload); }
+                    } else {
+                        // Otherwise show a persistent transient item and bump the unread badge
+                        showMessagePanel(payload);
+                        try { incrementUnreadBadge(1); } catch(e){}
+                    }
                 } catch (e) {}
             });
         } catch (e) {}
+    }
+
+    const script = document.createElement('script');
+    script.src = '/socket.io/socket.io.js';
+    script.onload = () => {
+        // if io isn't provided, fall back to CDN
+        if (typeof io !== 'function') {
+            const cdn = document.createElement('script');
+            cdn.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+            cdn.crossOrigin = 'anonymous';
+            cdn.onload = initSocket;
+            cdn.onerror = () => { console.warn('Socket.IO client failed to load from CDN'); };
+            document.head.appendChild(cdn);
+        } else {
+            initSocket();
+        }
+    };
+    script.onerror = () => {
+        const cdn = document.createElement('script');
+        cdn.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+        cdn.crossOrigin = 'anonymous';
+        cdn.onload = initSocket;
+        cdn.onerror = () => { console.warn('Socket.IO client failed to load from CDN'); };
+        document.head.appendChild(cdn);
     };
     document.head.appendChild(script);
 })();
@@ -898,6 +937,25 @@ async function loadMessagesForMe() {
         });
     });
     refreshMsgBadge();
+}
+
+/* Mark all unread messages as read for current staff/date */
+async function markAllMessagesRead() {
+    const id = await getMyStaffId();
+    if (!id) { showToast('수신자 정보가 없습니다', 'error'); return; }
+    const date = (dateInput && dateInput.value) ? dateInput.value : getResetIsoDate();
+    try {
+        const msgs = await api(`/api/messages/user?recipient_id=${id}&date=${date}`);
+        const unread = (msgs || []).filter(m => !m.read_flag);
+        if (!unread.length) { showToast('읽지 않은 메시지가 없습니다', 'success'); return; }
+        await Promise.all(unread.map(m => api(`/api/messages/${m.id}/read`, { method: 'POST' }).catch(()=>{})));
+        await refreshMsgBadge();
+        await loadMessagesForMe();
+        showToast('모두 읽음 처리되었습니다', 'success');
+        try { closeMessageModal(); } catch(e){}
+    } catch (err) {
+        showToast('모두 읽음 실패', 'error');
+    }
 }
 
 /* Ensure '사장님' entry button reliably opens admin modal (fallback binding) */

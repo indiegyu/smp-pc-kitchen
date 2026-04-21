@@ -6,6 +6,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>{% block title %}SMP PC Kitchen{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="icon" href="/static/favicon.ico">
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -56,6 +58,18 @@
             <div class="modal-actions">
                 <button class="btn btn-outline" id="adminCancelBtn">취소</button>
                 <button class="btn btn-primary" id="adminSubmitBtn">로그인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message inbox modal (focus-centric) -->
+    <div id="messageInboxModal" class="modal-overlay" aria-hidden="true">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="messageInboxTitle">
+            <h3 id="messageInboxTitle">메시지함</h3>
+            <div id="messagePanel" class="message-panel" style="position:static;top:auto;right:auto;width:100%;max-height:50vh;overflow:auto;pointer-events:auto;opacity:1;transform:none;box-shadow:none;margin-top:8px"></div>
+            <div class="modal-actions" style="margin-top:12px">
+                <button class="btn btn-outline" onclick="closeMessageModal()">닫기</button>
+                <button class="btn btn-primary" onclick="markAllMessagesRead()">모두 읽음</button>
             </div>
         </div>
     </div>
@@ -203,34 +217,54 @@
             modal.classList.remove('show');
         };
 
-        // Ensure message panel exists on public pages and provide bell control
-        (function ensureGlobalMessageUI(){
-            if (document.getElementById('messagePanel')) return;
-            const mp = document.createElement('div');
-            mp.id = 'messagePanel';
-            mp.className = 'message-panel';
-            document.body.appendChild(mp);
-        })();
-
-        window.openMessagePanel = function() {
-            const panel = document.getElementById('messagePanel');
-            console.log('[debug] openMessagePanel called', { panelExists: !!panel, wasOpen: panel ? panel.classList.contains('open') : null });
-            if (!panel) return;
-            panel.classList.toggle('open');
-            console.log('[debug] messagePanel toggled, isOpen:', panel.classList.contains('open'));
+        // Message inbox modal control (focus-centric)
+        window.openMessageModal = function() {
+            const modal = document.getElementById('messageInboxModal');
+            if (!modal) return;
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+            // load authoritative inbox if available
+            if (typeof loadMessagesForMe === 'function') {
+                try { loadMessagesForMe(); } catch(e){ console.warn('loadMessagesForMe failed', e); }
+            } else {
+                // fallback: ensure messagePanel exists and show a placeholder
+                const panel = document.getElementById('messagePanel');
+                if (panel) panel.innerHTML = '<div class="message"><div class="from">시스템</div><div class="content">메시지를 불러오는 중입니다...</div></div>';
+            }
         };
 
-        // fallback binding to ensure msgBell always toggles panel
+        window.closeMessageModal = function() {
+            const modal = document.getElementById('messageInboxModal');
+            if (!modal) return;
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+        };
+
+        // convenience alias kept for backward-compatibility
+        window.openMessagePanel = window.openMessageModal;
+
         document.addEventListener('DOMContentLoaded', () => {
             const bell = document.getElementById('msgBell');
-            console.log('[debug] DOMContentLoaded: msgBell element:', bell);
-            if (bell && typeof window.openMessagePanel === 'function') {
-                console.log('[debug] binding click to msgBell');
+            if (bell && typeof window.openMessageModal === 'function') {
                 try {
-                    bell.removeEventListener && bell.removeEventListener('click', window.openMessagePanel);
+                    bell.removeEventListener && bell.removeEventListener('click', window.openMessageModal);
                 } catch(e){}
-                bell.addEventListener('click', (ev) => { ev.preventDefault(); console.log('[debug] msgBell clicked'); window.openMessagePanel(); });
+                bell.addEventListener('click', (ev) => { ev.preventDefault(); window.openMessageModal(); });
             }
+            // close modal on ESC
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const modal = document.getElementById('messageInboxModal');
+                    if (modal && modal.classList.contains('show')) closeMessageModal();
+                }
+            });
+            // clicking outside modal content closes it
+            document.addEventListener('click', (e) => {
+                const modal = document.getElementById('messageInboxModal');
+                if (!modal || !modal.classList.contains('show')) return;
+                const modalInner = modal.querySelector('.modal');
+                if (modalInner && !modalInner.contains(e.target)) closeMessageModal();
+            });
         });
     </script>
     {% block scripts %}{% endblock %}
