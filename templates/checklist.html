@@ -62,9 +62,9 @@
       <h2 style="margin-bottom:8px;">근무 선택</h2>
       <div style="max-width:360px;text-align:center;color:var(--text-secondary);margin-bottom:12px;">근무 형태를 선택한 뒤, 오른쪽에서 담당 직원을 골라주세요.</div>
         <div class="entry-shifts" role="tablist" aria-label="근무 선택">
-          <button class="entry-shift-btn" data-shift="day" data-selected="false" onclick="selectShiftInModal('day')" data-shift-label>오전</button>
-          <button class="entry-shift-btn" data-shift="night" data-selected="false" onclick="selectShiftInModal('night')" data-shift-label>오후</button>
-          <button class="entry-shift-btn" data-shift="boss" data-selected="false" onclick="showAdminModal()" title="사장님 인증" style="background:#fff;border:1px solid var(--border)">사장님</button>
+          <button type="button" class="entry-shift-btn" data-shift="day" data-selected="false" onclick="selectShiftInModal('day')" data-shift-label>오전</button>
+          <button type="button" class="entry-shift-btn" data-shift="night" data-selected="false" onclick="selectShiftInModal('night')" data-shift-label>오후</button>
+          <button type="button" class="entry-shift-btn" data-shift="boss" data-selected="false" onclick="showAdminModal()" title="사장님 인증" style="background:#fff;border:1px solid var(--border)">사장님</button>
         </div>
     </div>
     <div class="entry-right" id="entryRight" aria-live="polite" style="display:none">
@@ -86,8 +86,8 @@
     <div style="display:flex;flex-direction:column;gap:8px;">
       <input id="adminPasswordInput" type="password" placeholder="비밀번호" style="padding:8px;border:1px solid var(--border);border-radius:6px;">
       <div style="display:flex;justify-content:flex-end;gap:8px;">
-        <button id="adminAuthCancel" class="btn btn-outline btn-sm">취소</button>
-        <button id="adminAuthSubmit" class="btn btn-primary btn-sm">확인</button>
+        <button type="button" id="adminAuthCancel" class="btn btn-outline btn-sm">취소</button>
+        <button type="button" id="adminAuthSubmit" class="btn btn-primary btn-sm">확인</button>
       </div>
     </div>
   </div>
@@ -253,24 +253,32 @@ async function showEntryModal() {
 }
 
 function showAdminModal() {
+  modalSelectedShift = 'boss';
   const modal = document.getElementById('adminAuthModal');
   if (!modal) return;
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden', 'false');
   const input = document.getElementById('adminPasswordInput');
-  if (input) { input.value = ''; setTimeout(() => input.focus(), 50); }
+  if (input) {
+    input.value = '';
+    setTimeout(() => { input.focus(); }, 50);
+  }
 }
 
-document.getElementById('adminAuthCancel') && document.getElementById('adminAuthCancel').addEventListener('click', () => {
+document.getElementById('adminAuthCancel') && document.getElementById('adminAuthCancel').addEventListener('click', (e) => {
+  if (e && e.preventDefault) e.preventDefault();
+  if (e && e.stopPropagation) e.stopPropagation();
   const modal = document.getElementById('adminAuthModal'); if (!modal) return; modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true');
 });
 
-document.getElementById('adminAuthSubmit') && document.getElementById('adminAuthSubmit').addEventListener('click', async () => {
+document.getElementById('adminAuthSubmit') && document.getElementById('adminAuthSubmit').addEventListener('click', async (e) => {
+  if (e && e.preventDefault) e.preventDefault();
+  if (e && e.stopPropagation) e.stopPropagation();
   const pw = (document.getElementById('adminPasswordInput') && document.getElementById('adminPasswordInput').value) || '';
   try {
     const res = await api('/api/admin/login', { method: 'POST', body: { password: pw }});
     if (res && res.ok) {
-      modalSelectedShift = modalSelectedShift || currentShift || 'day';
+      modalSelectedShift = modalSelectedShift || 'boss';
       confirmStaff({ id: null, name: '사장님' });
       const modal = document.getElementById('adminAuthModal');
       if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
@@ -281,6 +289,20 @@ document.getElementById('adminAuthSubmit') && document.getElementById('adminAuth
     showToast('서버 오류','error');
   }
 });
+
+<!-- ensure Enter on admin password input doesn't trigger other handlers -->
+const adminPwInput = document.getElementById('adminPasswordInput');
+if (adminPwInput && !adminPwInput._adminKeybound) {
+  adminPwInput._adminKeybound = true;
+  adminPwInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+      const btn = document.getElementById('adminAuthSubmit');
+      if (btn) btn.click();
+    }
+  });
+}
 
 function showShiftStep() {
   const modal = document.getElementById('entryModal');
