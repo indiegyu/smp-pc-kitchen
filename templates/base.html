@@ -30,6 +30,13 @@
             {% endif %}
         </div>
         {% endblock %}
+        {% if not request.path.startswith('/manage') %}
+        <div class="nav-actions">
+            <button id="msgBell" class="btn btn-outline btn-sm" aria-label="메시지" onclick="openMessagePanel()">
+                🔔 <span class="badge-count" id="msgBellCount" style="display:none"></span>
+            </button>
+        </div>
+        {% endif %}
     </nav>
 
     <main class="container {% block container_class %}{% endblock %}">
@@ -189,6 +196,21 @@
             const modal = document.getElementById('adminModal');
             if (!modal) return;
             modal.classList.remove('show');
+        };
+
+        // Ensure message panel exists on public pages and provide bell control
+        (function ensureGlobalMessageUI(){
+            if (document.getElementById('messagePanel')) return;
+            const mp = document.createElement('div');
+            mp.id = 'messagePanel';
+            mp.className = 'message-panel';
+            document.body.appendChild(mp);
+        })();
+
+        window.openMessagePanel = function() {
+            const panel = document.getElementById('messagePanel');
+            if (!panel) return;
+            panel.classList.toggle('open');
         };
     </script>
     {% block scripts %}{% endblock %}

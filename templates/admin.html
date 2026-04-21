@@ -54,10 +54,6 @@
               <label>내용</label>
               <textarea id="messageContent" rows="6" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></textarea>
             </div>
-            <div class="form-group">
-              <label>관리자 비밀번호</label>
-              <input id="messageAdminPassword" type="password" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px" placeholder="관리자 비밀번호">
-            </div>
             <div class="modal-actions">
               <button class="btn btn-outline" onclick="closeModal('messageModal')">취소</button>
               <button class="btn btn-primary" id="sendMessageBtn" onclick="sendMessage()">전송</button>
@@ -69,10 +65,6 @@
         <div class="modal-overlay" id="messageLogsModal">
           <div class="modal">
             <h3>메시지 로그</h3>
-            <div class="form-group">
-              <label>관리자 비밀번호</label>
-              <input id="logsAdminPassword" type="password" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px" placeholder="관리자 비밀번호">
-            </div>
             <div class="form-group">
               <label>직원 (선택)</label>
               <select id="logsRecipient" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px">
@@ -725,7 +717,7 @@ function showMessageModal(recipientId) {
     populateMessageRecipients().then(() => {
         if (recipientId && byId('messageRecipient')) byId('messageRecipient').value = recipientId;
         if (byId('messageContent')) byId('messageContent').value = '';
-        if (byId('messageAdminPassword')) byId('messageAdminPassword').value = '';
+        // admin password input removed; authentication handled at page entry
         const m = byId('messageModal');
         if (m) { m.classList.add('show'); setTimeout(() => { if (byId('messageContent')) byId('messageContent').focus(); }, 80); }
     });
@@ -733,9 +725,16 @@ function showMessageModal(recipientId) {
 
 function showMessageLogsModal() {
     populateMessageRecipients();
-    if (byId('logsStart')) byId('logsStart').value = '';
-    if (byId('logsEnd')) byId('logsEnd').value = '';
-    if (byId('logsAdminPassword')) byId('logsAdminPassword').value = '';
+    // default date range: last 6 months to today (KST)
+    if (byId('logsStart') || byId('logsEnd')) {
+        const nowKst = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+        const end = new Date(nowKst.getFullYear(), nowKst.getMonth(), nowKst.getDate());
+        const start = new Date(end);
+        start.setMonth(start.getMonth() - 6);
+        const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        if (byId('logsStart')) byId('logsStart').value = iso(start);
+        if (byId('logsEnd')) byId('logsEnd').value = iso(end);
+    }
     const m = byId('messageLogsModal');
     if (m) { m.classList.add('show'); if (byId('messageLogsContainer')) byId('messageLogsContainer').innerHTML = '로그 없음'; }
 }
@@ -743,13 +742,13 @@ function showMessageLogsModal() {
 async function sendMessage() {
     const recipient = byId('messageRecipient') ? byId('messageRecipient').value : '';
     const content = byId('messageContent') ? byId('messageContent').value.trim() : '';
-    const pwd = byId('messageAdminPassword') ? byId('messageAdminPassword').value : '';
+    // admin password field removed; session-based auth used
     if (!recipient || !content) { showToast('수신자와 내용을 입력하세요', 'error'); return; }
     const btn = byId('sendMessageBtn'); if (btn) btn.disabled = true;
     try {
         const date = (viewDate && viewDate.value) ? viewDate.value : getResetIsoDate();
         const shift = currentDetailShift || 'day';
-        const res = await api('/api/messages', { method: 'POST', body: { recipient_id: recipient, date, shift, content, password: pwd }});
+        const res = await api('/api/messages', { method: 'POST', body: { recipient_id: recipient, date, shift, content }});
         if (res && res.ok) {
             showToast('메시지 전송됨');
             closeModal('messageModal');
@@ -764,14 +763,14 @@ async function sendMessage() {
 }
 
 async function fetchMessageLogs() {
-    const pwd = byId('logsAdminPassword') ? byId('logsAdminPassword').value : '';
     const recipient = byId('logsRecipient') ? byId('logsRecipient').value : '';
     const start = byId('logsStart') ? byId('logsStart').value : '';
     const end = byId('logsEnd') ? byId('logsEnd').value : '';
-    let q = `/api/messages/logs?password=${encodeURIComponent(pwd)}`;
-    if (recipient) q += `&recipient_id=${encodeURIComponent(recipient)}`;
-    if (start) q += `&start=${encodeURIComponent(start)}`;
-    if (end) q += `&end=${encodeURIComponent(end)}`;
+    const params = [];
+    if (recipient) params.push(`recipient_id=${encodeURIComponent(recipient)}`);
+    if (start) params.push(`start=${encodeURIComponent(start)}`);
+    if (end) params.push(`end=${encodeURIComponent(end)}`);
+    let q = '/api/messages/logs' + (params.length ? '?' + params.join('&') : '');
     try {
         const data = await api(q);
         const container = byId('messageLogsContainer');

@@ -679,9 +679,7 @@ async function sendPrevNoteAsMessage(prevDate, prevShift, content) {
         const staffList = await api('/api/staff').catch(()=>[]);
         const st = (Array.isArray(staffList) ? staffList : []).find(s => s.name === staffName);
         if (!st) { showToast('수신 직원 정보를 찾을 수 없습니다', 'error'); return; }
-        const pwd = prompt('관리자 비밀번호를 입력하세요 (사장님 인증)');
-        if (!pwd) { showToast('취소됨', 'error'); return; }
-        const payload = { recipient_id: st.id, date: dateInput.value, shift: localStorage.getItem('smp_shift') || currentShift || 'day', content: `이전근무(${prevDate} ${prevShift === 'day' ? '오전' : '오후'}) 전달: ${content}`, password: pwd };
+        const payload = { recipient_id: st.id, date: dateInput.value, shift: localStorage.getItem('smp_shift') || currentShift || 'day', content: `이전근무(${prevDate} ${prevShift === 'day' ? '오전' : '오후'}) 전달: ${content}` };
         const res = await api('/api/messages', { method: 'POST', body: payload });
         if (res && res.ok) {
             showToast('메시지 전송 완료', 'success');
