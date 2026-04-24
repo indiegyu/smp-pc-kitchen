@@ -45,8 +45,8 @@
     byId('addPrioCatBtn').addEventListener('click', async ()=>{
       const v = byId('newPrioCatName').value.trim(); if(!v) return;
       try {
-        const res = await ajaxApi('/api/checklist/priority-categories', { method:'POST', body:{ name:v }});
-        const defaultShift = localStorage.getItem('prio_cat_default_shift');
+        const defaultShift = localStorage.getItem('prio_cat_default_shift') || null;
+        const res = await ajaxApi('/api/checklist/priority-categories', { method:'POST', body:{ name:v, default_shift: defaultShift }});
         if (res && res.id && defaultShift) {
           // persist per-category default shift for the newly-created category
           localStorage.setItem('prio_cat_shift_' + String(res.id), defaultShift);
@@ -142,7 +142,7 @@
         const cid = catObj.id;
         const meta = catObj.meta;
         const list = catObj.items || [];
-        html += `<div class="cat-card prio-cat" data-id="${escapeHtml(String(cid))}" style="margin-bottom:10px;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--bg)">
+        html += `<div class="cat-card prio-cat" data-id="${escapeHtml(String(cid))}" data-default-shift="${escapeHtml((meta && meta.default_shift) || '')}" style="margin-bottom:10px;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--bg)">
           <div class="cat-card-header" style="display:flex;align-items:center;gap:8px">
             <span class="cat-drag" style="cursor:grab">≡</span>
             <span class="cat-move-btns" style="display:none;flex-direction:column;gap:4px;margin-left:4px;">
@@ -158,8 +158,7 @@
             <div style="display:flex;gap:8px;margin-bottom:8px">
               <input class="new-prio-item-input" placeholder="새 항목명" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px">
               <div style="display:flex;gap:6px">
-                <button class="btn btn-primary btn-sm add-prio-item-btn" data-shift="day">추가(day)</button>
-                <button class="btn btn-primary btn-sm add-prio-item-btn" data-shift="night">추가(night)</button>
+                <button class="btn btn-primary btn-sm add-prio-item-btn">추가</button>
               </div>
             </div>
             <ul class="item-list" data-cat-id="${escapeHtml(String(cid))}" style="list-style:none;padding:0;margin:0;border-top:1px solid var(--border)">
@@ -209,16 +208,14 @@
         const insertBeforeNode = header.querySelector('.cat-edit-btn') || header.querySelector('.toggle-arrow') || null;
         header.insertBefore(span, insertBeforeNode);
 
-        // restore stored state (per-category) or fall back to global default
+        // prefer server-provided default_shift, then stored state, then global default
         const stored = localStorage.getItem('prio_cat_shift_' + id);
-        if (stored === 'day') { dayItem.cb.checked = true; nightItem.cb.checked = false; }
-        else if (stored === 'night') { dayItem.cb.checked = false; nightItem.cb.checked = true; }
-        else {
-          const defaultShift = localStorage.getItem('prio_cat_default_shift');
-          if (defaultShift === 'day') { dayItem.cb.checked = true; nightItem.cb.checked = false; }
-          else if (defaultShift === 'night') { dayItem.cb.checked = false; nightItem.cb.checked = true; }
-          else { dayItem.cb.checked = true; nightItem.cb.checked = false; }
-        }
+        let effective = stored;
+        const serverDefault = card && card.dataset && card.dataset.defaultShift ? card.dataset.defaultShift : null;
+        if (!effective && serverDefault) effective = serverDefault;
+        if (!effective) effective = localStorage.getItem('prio_cat_default_shift') || 'day';
+        if (effective === 'day') { dayItem.cb.checked = true; nightItem.cb.checked = false; }
+        else { dayItem.cb.checked = false; nightItem.cb.checked = true; }
 
         // helper to ensure at least one checked and disable single checked to prevent unchecking
         const syncDisabled = () => {
@@ -245,7 +242,6 @@
           const other = header.querySelector('.prio-cat-checkbox[data-shift="' + (shift === 'day' ? 'night' : 'day') + '"]');
           if (e.target.checked) {
             if (other) other.checked = false;
-            localStorage.setItem('prio_cat_shift_' + id, shift);
           } else {
             // if user somehow unchecked leading to none, revert to checked (shouldn't happen because we disable single checked)
             const d = header.querySelector('.prio-cat-checkbox[data-shift="day"]').checked;
@@ -253,11 +249,14 @@
             if (!d && !n) {
               // prevent leaving none checked; re-check this one
               e.target.checked = true;
-              if (e.target.dataset.shift) localStorage.setItem('prio_cat_shift_' + id, e.target.dataset.shift);
-            } else if (d) localStorage.setItem('prio_cat_shift_' + id, 'day');
-            else if (n) localStorage.setItem('prio_cat_shift_' + id, 'night');
+            }
           }
           syncDisabled();
+          const newShift = dayItem.cb.checked ? 'day' : 'night';
+          localStorage.setItem('prio_cat_shift_' + id, newShift);
+          // persist to server
+          ajaxApi('/api/checklist/priority-categories/' + id, { method:'PUT', body: { default_shift: newShift }})
+            .catch(()=>{});
         }));
 
         // initial sync
@@ -328,7 +327,7 @@
         });
       });
 
-      // add new checklist item into this priority category (supports adding to day/night)
+      // add new checklist item into this priority category (uses category default shift)
       root.querySelectorAll('.add-prio-item-btn').forEach(btn=>{
         btn.addEventListener('click', async e=>{
           const card = e.target.closest('.prio-cat');
@@ -339,8 +338,11 @@
           if (!name) return;
           setBtnDisabled(btn, true);
           try {
-            const shift = btn.dataset.shift || 'day';
-            const res = await ajaxApi('/api/checklist/item', { method:'POST', body:{ name: name, shift }});
+            const serverDefault = card.dataset && card.dataset.defaultShift ? card.dataset.defaultShift : null;
+            const localSaved = localStorage.getItem('prio_cat_shift_' + cid);
+            const globalDefault = localStorage.getItem('prio_cat_default_shift') || 'day';
+            const effectiveShift = (serverDefault === 'day' || serverDefault === 'night') ? serverDefault : (localSaved || globalDefault || 'day');
+            const res = await ajaxApi('/api/checklist/item', { method:'POST', body:{ name: name, shift: effectiveShift }});
             const newId = res && res.id;
             if (newId && cid && cid !== 'unassigned') {
               const payload = { id: newId, priority: cid === 'handoff' ? 'handoff' : parseInt(cid,10) };

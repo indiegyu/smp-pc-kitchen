@@ -176,6 +176,8 @@
 <script>
 let currentShift = 'day';
 let items = [];
+let prioCategories = [];
+let prioCategoriesFiltered = [];
 let noteTimers = {};
 let modalSelectedShift = null;
 let entryResolve = null;
@@ -499,9 +501,15 @@ async function loadChecklist() {
     currentShift = localStorage.getItem('smp_shift') || currentShift;
     // ensure date input uses reset-aware date by default
     if (!dateInput.value) dateInput.value = getResetIsoDate();
-
+ 
     try {
-      const itemsResp = await api(`/api/checklist/${currentShift}?date=${dateInput.value}`);
+      const [catsResp, itemsResp] = await Promise.all([
+        api('/api/checklist/priority-categories'),
+        api(`/api/checklist/${currentShift}?date=${dateInput.value}`)
+      ]);
+      prioCategories = Array.isArray(catsResp) ? catsResp.slice().sort((a,b) => (a.sort_order||0) - (b.sort_order||0)) : [];
+      // include categories that are global (default_shift null/undefined) or specifically match currentShift
+      prioCategoriesFiltered = prioCategories.filter(c => (c.default_shift === null || c.default_shift === undefined) || String(c.default_shift) === String(currentShift));
       items = (itemsResp || []).map(it => ({...it, priority: (it.priority !== undefined && it.priority !== null) ? it.priority : assignPriority(it.name), night_group: (currentShift === 'night' ? mapNightGroup(it.name) : null)}));
       render();
     } catch (err) {
@@ -545,24 +553,27 @@ function render() {
       return;
     }
 
-    // Day shift: original priority groups
-    const groups = {
-      1: {title: '우선순위 1 (Top Priority)', cls: 'priority-1'},
-      2: {title: '우선순위 2 (주방 정리)', cls: 'priority-2'},
-      3: {title: '우선순위 3 (업장 청소)', cls: 'priority-3'},
-      4: {title: '우선순위 4 (재고 채우기)', cls: 'priority-4'},
-      5: {title: '우선순위 5 (전문 작업)', cls: 'priority-5'},
-      'handoff': {title: '오전 인수인계전 체크사항', cls: 'priority-1'}
-    };
-
-    const icons = {1: '⚠️', 2: '🧼', 3: '🧹', 4: '📦', 5: '🔧', 'handoff': '🔁'};
-
+    // Day shift: use server-defined priority categories when available
     let html = '';
-    [1,2,3,4,5,'handoff'].forEach(key => {
+    // determine categories to render: server-provided filtered by default_shift, or fallback to static set
+    const dynamicCats = (Array.isArray(prioCategoriesFiltered) && prioCategoriesFiltered.length) ? prioCategoriesFiltered : [
+      { id: 1, name: '1 - Top', sort_order: 0 },
+      { id: 2, name: '2 - 주방 정리', sort_order: 1 },
+      { id: 3, name: '3 - 업장 청소', sort_order: 2 },
+      { id: 4, name: '4 - 재고 채우기', sort_order: 3 },
+      { id: 5, name: '5 - 전문 작업', sort_order: 4 },
+    ];
+ 
+    const icons = {1: '⚠️', 2: '🧼', 3: '🧹', 4: '📦', 5: '🔧', 'handoff': '🔁'};
+ 
+    dynamicCats.forEach(c => {
+      const key = c.id;
+      const title = c.name || `Category ${c.id}`;
+      const cls = 'priority-' + key;
       const list = items.filter(i => String(i.priority) === String(key));
       const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
-      html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
-      html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+      html += `<div class="priority-box ${cls}" data-key="${key}">`;
+      html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${escapeHtml(title)}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
       html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
       if (!list.length) {
           html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
@@ -570,16 +581,35 @@ function render() {
           html += list.map(it => `
             <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
                 <div class="cl-check"></div>
-                <div class="cl-name">${it.name}</div>
-                ${it.completed ? `<div class="cl-meta">${it.completed_by || ''}</div>` : ''}
+                <div class="cl-name">${escapeHtml(it.name)}</div>
+                ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')}</div>` : ''}
             </div>
           `).join('');
       }
       html += `</div></div>`;
     });
-
+ 
+    // handoff group (special)
+    const handoffList = items.filter(i => String(i.priority) === 'handoff');
+    const handoffCollapsed = localStorage.getItem('prio_collapsed_handoff') === '1';
+    html += `<div class="priority-box priority-handoff" data-key="handoff">`;
+    html += `<div class="priority-header" onclick="togglePriorityBox('handoff', this)" aria-expanded="${!handoffCollapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons['handoff']}</span> 오전 인수인계전 체크사항</div><span class="collapse-arrow ${handoffCollapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+    html += `<div class="priority-body ${handoffCollapsed ? 'collapsed' : ''}">`;
+    if (!handoffList.length) {
+        html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+    } else {
+        html += handoffList.map(it => `
+            <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
+                <div class="cl-check"></div>
+                <div class="cl-name">${escapeHtml(it.name)}</div>
+                ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')}</div>` : ''}
+            </div>
+        `).join('');
+    }
+    html += `</div></div>`;
+ 
     container.innerHTML = html;
-}
+  }
 
 function togglePriorityBox(key, el) {
     const box = document.querySelector('.priority-box[data-key="'+key+'"]');

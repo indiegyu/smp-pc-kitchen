@@ -267,19 +267,28 @@ def set_priority():
 def get_priority_categories():
     cats = _load_priority_categories()
     cats = sorted(cats, key=lambda c: c.get('sort_order', 0))
+    # ensure legacy entries have explicit default_shift key
+    for c in cats:
+        if 'default_shift' not in c:
+            c['default_shift'] = None
     return jsonify(cats)
 
 @app.route('/api/checklist/priority-categories', methods=['POST'])
 def create_priority_category():
     data = request.json or {}
     name = (data.get('name') or '').strip()
+    default_shift = data.get('default_shift', None)
+    if default_shift == '':
+        default_shift = None
+    if default_shift is not None and default_shift not in ('day', 'night'):
+        return jsonify({'error': 'invalid default_shift'}), 400
     if not name:
         return jsonify({'error': 'Name required'}), 400
     cats = _load_priority_categories()
     max_id = max([c.get('id', 0) for c in cats], default=0)
     new_id = max_id + 1
     max_order = max([c.get('sort_order', -1) for c in cats], default=-1)
-    cat = {'id': new_id, 'name': name, 'sort_order': max_order + 1}
+    cat = {'id': new_id, 'name': name, 'sort_order': max_order + 1, 'default_shift': default_shift}
     cats.append(cat)
     _save_priority_categories(cats)
     return jsonify({'ok': True, 'id': new_id})
@@ -293,6 +302,13 @@ def update_priority_category(cat_id):
         if c.get('id') == cat_id:
             if name:
                 c['name'] = name
+            if 'default_shift' in data:
+                new_shift = data.get('default_shift')
+                if new_shift == '':
+                    new_shift = None
+                if new_shift is not None and new_shift not in ('day', 'night'):
+                    return jsonify({'error': 'invalid default_shift'}), 400
+                c['default_shift'] = new_shift
             _save_priority_categories(cats)
             return jsonify({'ok': True})
     return jsonify({'error': 'category not found'}), 404
