@@ -32,12 +32,11 @@
       <div style="display:flex;flex-direction:column;gap:12px">
         <div style="display:flex;gap:8px;align-items:center">
           <input id="newPrioCatName" placeholder="새 체크리스트 항목 카테고리명" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px">
-          <button class="btn btn-primary btn-sm" id="addPrioCatBtn">추가</button>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;font-size:0.9rem;color:var(--text-secondary)">
-          <span>기본 체크 선택:</span>
-          <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="defaultPrioDay" data-shift="day"> day</label>
-          <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="defaultPrioNight" data-shift="night"> night</label>
+          <div style="display:flex;gap:8px;align-items:center;font-size:0.9rem;color:var(--text-secondary);margin-left:8px">
+            <label style="display:flex;align-items:center;gap:4px;margin:0 6px 0 0"><input type="checkbox" id="defaultPrioDay" data-shift="day"> day</label>
+            <label style="display:flex;align-items:center;gap:4px;margin:0 6px 0 0"><input type="checkbox" id="defaultPrioNight" data-shift="night"> night</label>
+          </div>
+          <button class="btn btn-primary btn-sm" id="addPrioCatBtn" style="margin-left:8px">추가</button>
         </div>
         <div id="prioCategoriesContainer" style="margin-top:8px"></div>
       </div>
@@ -209,6 +208,7 @@
         span.appendChild(nightItem.lbl);
         const insertBeforeNode = header.querySelector('.cat-edit-btn') || header.querySelector('.toggle-arrow') || null;
         header.insertBefore(span, insertBeforeNode);
+
         // restore stored state (per-category) or fall back to global default
         const stored = localStorage.getItem('prio_cat_shift_' + id);
         if (stored === 'day') { dayItem.cb.checked = true; nightItem.cb.checked = false; }
@@ -217,8 +217,29 @@
           const defaultShift = localStorage.getItem('prio_cat_default_shift');
           if (defaultShift === 'day') { dayItem.cb.checked = true; nightItem.cb.checked = false; }
           else if (defaultShift === 'night') { dayItem.cb.checked = false; nightItem.cb.checked = true; }
+          else { dayItem.cb.checked = true; nightItem.cb.checked = false; }
         }
-        // handlers: mutual-exclusive + persist
+
+        // helper to ensure at least one checked and disable single checked to prevent unchecking
+        const syncDisabled = () => {
+          const dChecked = dayItem.cb.checked;
+          const nChecked = nightItem.cb.checked;
+          // ensure at least one checked
+          if (!dChecked && !nChecked) {
+            // prefer global default if set
+            const defaultShift = localStorage.getItem('prio_cat_default_shift');
+            if (defaultShift === 'night') { nightItem.cb.checked = true; }
+            else { dayItem.cb.checked = true; }
+          }
+          // recompute after potential adjustments
+          const d = dayItem.cb.checked;
+          const n = nightItem.cb.checked;
+          if (d && !n) { dayItem.cb.disabled = true; nightItem.cb.disabled = false; }
+          else if (!d && n) { dayItem.cb.disabled = false; nightItem.cb.disabled = true; }
+          else { dayItem.cb.disabled = false; nightItem.cb.disabled = false; }
+        };
+
+        // handlers: mutual-exclusive + persist + disabled sync
         [dayItem.cb, nightItem.cb].forEach(cb => cb.addEventListener('change', function(e){
           const shift = e.target.dataset.shift;
           const other = header.querySelector('.prio-cat-checkbox[data-shift="' + (shift === 'day' ? 'night' : 'day') + '"]');
@@ -226,13 +247,21 @@
             if (other) other.checked = false;
             localStorage.setItem('prio_cat_shift_' + id, shift);
           } else {
+            // if user somehow unchecked leading to none, revert to checked (shouldn't happen because we disable single checked)
             const d = header.querySelector('.prio-cat-checkbox[data-shift="day"]').checked;
             const n = header.querySelector('.prio-cat-checkbox[data-shift="night"]').checked;
-            if (!d && !n) localStorage.removeItem('prio_cat_shift_' + id);
-            else if (d) localStorage.setItem('prio_cat_shift_' + id, 'day');
+            if (!d && !n) {
+              // prevent leaving none checked; re-check this one
+              e.target.checked = true;
+              if (e.target.dataset.shift) localStorage.setItem('prio_cat_shift_' + id, e.target.dataset.shift);
+            } else if (d) localStorage.setItem('prio_cat_shift_' + id, 'day');
             else if (n) localStorage.setItem('prio_cat_shift_' + id, 'night');
           }
+          syncDisabled();
         }));
+
+        // initial sync
+        syncDisabled();
       });
 
       // delegated handlers similar to inventory
