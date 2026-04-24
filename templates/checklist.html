@@ -502,7 +502,7 @@ async function loadChecklist() {
 
     try {
       const itemsResp = await api(`/api/checklist/${currentShift}?date=${dateInput.value}`);
-      items = itemsResp.map(it => ({...it, priority: assignPriority(it.name), night_group: (currentShift === 'night' ? mapNightGroup(it.name) : null)}));
+      items = (itemsResp || []).map(it => ({...it, priority: (it.priority !== undefined && it.priority !== null) ? it.priority : assignPriority(it.name), night_group: (currentShift === 'night' ? mapNightGroup(it.name) : null)}));
       render();
     } catch (err) {
       showToast('데이터 불러오기 실패', 'error');
@@ -559,7 +559,7 @@ function render() {
 
     let html = '';
     [1,2,3,4,5,'handoff'].forEach(key => {
-      const list = items.filter(i => i.priority === key);
+      const list = items.filter(i => String(i.priority) === String(key));
       const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
       html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
       html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
