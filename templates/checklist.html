@@ -521,36 +521,86 @@ function render() {
     const container = document.getElementById('checklistContainer');
     if (!items.length) { container.innerHTML = '<div class="card"><div class="card-body"><div style="padding:12px">No items</div></div></div>'; return; }
 
-    // Night shift: group into 마감 청소 1 / 마감 청소 2 / 마감
+    // Night shift: prefer server-defined priority categories; fallback to legacy grouping
     if (currentShift === 'night') {
-      const groups = {
-        mc1: {title: '마감 청소 1', cls: 'priority-1'},
-        mc2: {title: '마감 청소 2', cls: 'priority-2'},
-        closing: {title: '마감', cls: 'priority-3'}
-      };
-      const icons = {mc1: '🧹', mc2: '🧽', closing: '🏁'};
       let html = '';
-      ['mc1','mc2','closing'].forEach(key => {
-        const list = items.filter(i => (i.night_group || mapNightGroup(i.name)) === key);
-        const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
-      html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
-      html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
-        html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
-        if (!list.length) {
+      // If server-provided categories exist for this shift, render them similarly to day
+      if (Array.isArray(prioCategoriesFiltered) && prioCategoriesFiltered.length) {
+        const dynamicCats = prioCategoriesFiltered;
+        const icons = {}; // keep empty; can be extended to map icons per category id
+        dynamicCats.forEach(c => {
+          const key = c.id;
+          const title = c.name || `Category ${c.id}`;
+          const cls = 'priority-' + key;
+          const list = items.filter(i => String(i.priority) === String(key));
+          const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
+          html += `<div class="priority-box ${cls}" data-key="${key}">`;
+          html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${escapeHtml(title)}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+          html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
+          if (!list.length) {
+              html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+          } else {
+              html += list.map(it => `
+                <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
+                    <div class="cl-check"></div>
+                    <div class="cl-name">${escapeHtml(it.name)}</div>
+                    ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')}</div>` : ''}
+                </div>
+              `).join('');
+          }
+          html += `</div></div>`;
+        });
+        // handoff group (special)
+        const handoffList = items.filter(i => String(i.priority) === 'handoff');
+        const handoffCollapsed = localStorage.getItem('prio_collapsed_handoff') === '1';
+        html += `<div class="priority-box priority-handoff" data-key="handoff">`;
+        html += `<div class="priority-header" onclick="togglePriorityBox('handoff', this)" aria-expanded="${!handoffCollapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">🔁</span> 오전 인수인계전 체크사항</div><span class="collapse-arrow ${handoffCollapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+        html += `<div class="priority-body ${handoffCollapsed ? 'collapsed' : ''}">`;
+        if (!handoffList.length) {
             html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
         } else {
-            html += list.map(it => `
-              <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
-                  <div class="cl-check"></div>
-                  <div class="cl-name">${it.name}</div>
-                  ${it.completed ? `<div class="cl-meta">${it.completed_by || ''}</div>` : ''}
-              </div>
+            html += handoffList.map(it => `
+                <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
+                    <div class="cl-check"></div>
+                    <div class="cl-name">${escapeHtml(it.name)}</div>
+                    ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')}</div>` : ''}
+                </div>
             `).join('');
         }
         html += `</div></div>`;
-      });
-      container.innerHTML = html;
-      return;
+        container.innerHTML = html;
+        return;
+      } else {
+        // fallback to legacy grouping when server categories are not available
+        const groups = {
+          mc1: {title: '마감 청소 1', cls: 'priority-1'},
+          mc2: {title: '마감 청소 2', cls: 'priority-2'},
+          closing: {title: '마감', cls: 'priority-3'}
+        };
+        const icons = {mc1: '🧹', mc2: '🧽', closing: '🏁'};
+        let html2 = '';
+        ['mc1','mc2','closing'].forEach(key => {
+          const list = items.filter(i => (i.night_group || mapNightGroup(i.name)) === key);
+          const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
+          html2 += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
+          html2 += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+          html2 += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
+          if (!list.length) {
+              html2 += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+          } else {
+              html2 += list.map(it => `
+                <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
+                    <div class="cl-check"></div>
+                    <div class="cl-name">${it.name}</div>
+                    ${it.completed ? `<div class="cl-meta">${it.completed_by || ''}</div>` : ''}
+                </div>
+              `).join('');
+          }
+          html2 += `</div></div>`;
+        });
+        container.innerHTML = html2;
+        return;
+      }
     }
 
     // Day shift: use server-defined priority categories when available
