@@ -121,6 +121,13 @@
             <span class="toggle-arrow" aria-hidden="true">▾</span>
           </div>
           <div style="margin-top:8px;padding-left:24px">
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+              <input class="new-prio-item-input" placeholder="새 항목명" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px">
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-primary btn-sm add-prio-item-btn" data-shift="day">추가(day)</button>
+                <button class="btn btn-primary btn-sm add-prio-item-btn" data-shift="night">추가(night)</button>
+              </div>
+            </div>
             <ul class="item-list" data-cat-id="${escapeHtml(String(cid))}" style="list-style:none;padding:0;margin:0;border-top:1px solid var(--border)">
               ${ list.length === 0 ? `<li class="empty" style="padding:8px;color:var(--text-secondary)">항목 없음</li>` :
                 list.map(it => `<li data-id="${it.id}" style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border)"><span class="drag-handle" style="cursor:grab">≡</span><span class="item-name" style="flex:1">${escapeHtml(it.name)}</span><button class="btn btn-outline btn-sm edit-item-btn">수정</button><button class="btn btn-sm del-item-btn" style="background:var(--danger-light);color:var(--danger)">삭제</button></li>`).join('') }
@@ -192,6 +199,35 @@
           await ajaxApi(`/api/checklist/item/${id}`, { method:'DELETE' });
           showToast && showToast('삭제됨');
           await renderPrioCategories();
+        });
+      });
+
+      // add new checklist item into this priority category (supports adding to day/night)
+      root.querySelectorAll('.add-prio-item-btn').forEach(btn=>{
+        btn.addEventListener('click', async e=>{
+          const card = e.target.closest('.prio-cat');
+          if (!card) return;
+          const cid = card.dataset.id;
+          const input = card.querySelector('.new-prio-item-input');
+          const name = input ? input.value.trim() : '';
+          if (!name) return;
+          setBtnDisabled(btn, true);
+          try {
+            const shift = btn.dataset.shift || 'day';
+            const res = await ajaxApi('/api/checklist/item', { method:'POST', body:{ name: name, shift }});
+            const newId = res && res.id;
+            if (newId && cid && cid !== 'unassigned') {
+              const payload = { id: newId, priority: cid === 'handoff' ? 'handoff' : parseInt(cid,10) };
+              await ajaxApi('/api/checklist/priorities', { method:'POST', body: payload });
+            }
+            if (input) input.value = '';
+            showToast && showToast('추가됨');
+            await renderPrioCategories();
+          } catch (err) {
+            showToast && showToast('추가 실패','error');
+          } finally {
+            setBtnDisabled(btn, false);
+          }
         });
       });
 
@@ -566,14 +602,46 @@
         }
       });
     });
-    root.querySelectorAll('.add-item-btn').forEach(btn=>{
-      btn.addEventListener('click', async e=>{
-        const card = e.target.closest('.cat-card'); const id = parseInt(card.dataset.id); const input = card.querySelector('.new-item-input'); const name = input.value.trim();
-        if(!name) return;
-        await ajaxApi('/api/inventory/item', { method:'POST', body:{ category_id: id, name }});
-        input.value=''; showToast && showToast('추가됨'); await loadInventoryMgmt();
+      root.querySelectorAll('.add-item-btn').forEach(btn=>{
+        btn.addEventListener('click', async e=>{
+          const card = e.target.closest('.cat-card');
+          const input = card ? card.querySelector('.new-item-input') : null;
+          const name = input ? input.value.trim() : '';
+          if(!name) return;
+          // robust category id resolution
+          let id = NaN;
+          if (card) {
+            id = parseInt(card.dataset.id);
+            if (isNaN(id)) {
+              const ul = card.querySelector('.item-list');
+              if (ul && ul.dataset && ul.dataset.catId) id = parseInt(ul.dataset.catId);
+            }
+          }
+          // fallback: lookup by category name from server
+          if (isNaN(id) || !id) {
+            try {
+              const cats = await ajaxApi('/api/inventory/categories') || [];
+              const catName = card ? (card.querySelector('.cat-name') && card.querySelector('.cat-name').textContent.trim()) : null;
+              const found = cats.find(c => c.name === catName);
+              if (found) id = found.id;
+            } catch (err) { /* ignore */ }
+          }
+          if (isNaN(id) || !id) {
+            showToast && showToast('카테고리를 찾을 수 없습니다','error'); return;
+          }
+          setBtnDisabled(btn, true);
+          try {
+            await ajaxApi('/api/inventory/item', { method:'POST', body:{ category_id: id, name }});
+            if (input) input.value='';
+            showToast && showToast('추가됨');
+            await loadInventoryMgmt();
+          } catch (err) {
+            showToast && showToast('추가 실패','error');
+          } finally {
+            setBtnDisabled(btn, false);
+          }
+        });
       });
-    });
     root.querySelectorAll('.edit-item-btn').forEach(btn=>{
       btn.addEventListener('click', e=>{
         const li = e.target.closest('li'); const id = parseInt(li.dataset.id); openItemEdit(id);
