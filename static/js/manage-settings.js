@@ -763,6 +763,9 @@
             if (input) input.value='';
             showToast && showToast('추가됨');
             await loadInventoryMgmt();
+            // 재렌더링 후 같은 카테고리의 input에 포커스 복원
+            const newInput = root.querySelector(`.cat-card[data-id="${id}"] .new-item-input`);
+            if (newInput) newInput.focus();
           } catch (err) {
             showToast && showToast('추가 실패','error');
           } finally {
