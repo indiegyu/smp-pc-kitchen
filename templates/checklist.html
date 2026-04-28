@@ -257,6 +257,20 @@ function updateBadge(shift, staff) {
   if (btn) btn.style.display = 'inline-block';
 }
 
+function switchShift(shift) {
+  if (!shift) return;
+  currentShift = shift;
+  localStorage.setItem('smp_shift', shift);
+  document.querySelectorAll('.shift-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-shift') === shift);
+  });
+  const label = document.getElementById('shiftLabel');
+  if (label) label.textContent = shift === 'day' ? 'DayTime' : 'NightTime';
+  loadChecklist();
+  loadNotes();
+  loadSummaryStrip();
+}
+
 /* Entry modal flow */
 async function showEntryModal() {
   const modal = document.getElementById('entryModal');
@@ -510,7 +524,15 @@ async function loadChecklist() {
       prioCategories = Array.isArray(catsResp) ? catsResp.slice().sort((a,b) => (a.sort_order||0) - (b.sort_order||0)) : [];
       // include categories that are global (default_shift null/undefined) or specifically match currentShift
       prioCategoriesFiltered = prioCategories.filter(c => (c.default_shift === null || c.default_shift === undefined) || String(c.default_shift) === String(currentShift));
-      items = (itemsResp || []).map(it => ({...it, priority: (it.priority !== undefined && it.priority !== null) ? it.priority : assignPriority(it.name), night_group: (currentShift === 'night' ? mapNightGroup(it.name) : null)}));
+      items = (itemsResp || []).map(it => {
+        let priority;
+        if (it.priority !== undefined && it.priority !== null) {
+          priority = String(it.priority);
+        } else {
+          priority = String(assignPriority(it.name));
+        }
+        return { ...it, priority, night_group: (currentShift === 'night' ? mapNightGroup(it.name) : null) };
+      });
       render();
     } catch (err) {
       showToast('데이터 불러오기 실패', 'error');
@@ -552,22 +574,26 @@ function render() {
         });
         // handoff group (special)
         const handoffList = items.filter(i => String(i.priority) === 'handoff');
-        const handoffCollapsed = localStorage.getItem('prio_collapsed_handoff') === '1';
-        html += `<div class="priority-box priority-handoff" data-key="handoff">`;
-        html += `<div class="priority-header" onclick="togglePriorityBox('handoff', this)" aria-expanded="${!handoffCollapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">🔁</span> 오전 인수인계전 체크사항</div><span class="collapse-arrow ${handoffCollapsed ? 'collapsed' : ''}">▾</span></div></div>`;
-        html += `<div class="priority-body ${handoffCollapsed ? 'collapsed' : ''}">`;
-        if (!handoffList.length) {
-            html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
-        } else {
-            html += handoffList.map(it => `
-                <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
-                    <div class="cl-check"></div>
-                    <div class="cl-name">${escapeHtml(it.name)}</div>
-                    ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')}</div>` : ''}
-                </div>
-            `).join('');
+        const handoffExistsInCategories = Array.isArray(prioCategories) && prioCategories.some(c => c && c.name && (/handoff|인수인계|인수/i.test(c.name)));
+        const shouldRenderHandoff = handoffList.length > 0 || handoffExistsInCategories;
+        if (shouldRenderHandoff) {
+            const handoffCollapsed = localStorage.getItem('prio_collapsed_handoff') === '1';
+            html += `<div class="priority-box priority-handoff" data-key="handoff">`;
+            html += `<div class="priority-header" onclick="togglePriorityBox('handoff', this)" aria-expanded="${!handoffCollapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">🔁</span> 오전 인수인계전 체크사항</div><span class="collapse-arrow ${handoffCollapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+            html += `<div class="priority-body ${handoffCollapsed ? 'collapsed' : ''}">`;
+            if (!handoffList.length) {
+                html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+            } else {
+                html += handoffList.map(it => `
+                    <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
+                        <div class="cl-check"></div>
+                        <div class="cl-name">${escapeHtml(it.name)}</div>
+                        ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')}</div>` : ''}
+                    </div>
+                `).join('');
+            }
+            html += `</div></div>`;
         }
-        html += `</div></div>`;
         container.innerHTML = html;
         return;
       } else {
@@ -641,22 +667,26 @@ function render() {
  
     // handoff group (special)
     const handoffList = items.filter(i => String(i.priority) === 'handoff');
-    const handoffCollapsed = localStorage.getItem('prio_collapsed_handoff') === '1';
-    html += `<div class="priority-box priority-handoff" data-key="handoff">`;
-    html += `<div class="priority-header" onclick="togglePriorityBox('handoff', this)" aria-expanded="${!handoffCollapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons['handoff']}</span> 오전 인수인계전 체크사항</div><span class="collapse-arrow ${handoffCollapsed ? 'collapsed' : ''}">▾</span></div></div>`;
-    html += `<div class="priority-body ${handoffCollapsed ? 'collapsed' : ''}">`;
-    if (!handoffList.length) {
-        html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
-    } else {
-        html += handoffList.map(it => `
+    const handoffExistsInCategories = Array.isArray(prioCategories) && prioCategories.some(c => c && c.name && (/handoff|인수인계|인수/i.test(c.name)));
+    const shouldRenderHandoff = handoffList.length > 0 || handoffExistsInCategories;
+    if (shouldRenderHandoff) {
+        const handoffCollapsed = localStorage.getItem('prio_collapsed_handoff') === '1';
+        html += `<div class="priority-box priority-handoff" data-key="handoff">`;
+        html += `<div class="priority-header" onclick="togglePriorityBox('handoff', this)" aria-expanded="${!handoffCollapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons['handoff']}</span> 오전 인수인계전 체크사항</div><span class="collapse-arrow ${handoffCollapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+        html += `<div class="priority-body ${handoffCollapsed ? 'collapsed' : ''}">`;
+        if (!handoffList.length) {
+            html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+        } else {
+            html += handoffList.map(it => `
             <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
                 <div class="cl-check"></div>
                 <div class="cl-name">${escapeHtml(it.name)}</div>
                 ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')}</div>` : ''}
             </div>
         `).join('');
+        }
+        html += `</div></div>`;
     }
-    html += `</div></div>`;
  
     container.innerHTML = html;
   }
