@@ -76,7 +76,9 @@
         });
       };
       setTimeout(initDefaultUI, 0);
-    })();
+    
+
+})();
 
     async function renderPrioCategories(){
       const wrap = byId('prioCategoriesContainer');
@@ -305,12 +307,17 @@
         const header = e.target.closest('.cat-card-header');
         if (!header) return;
         // ignore clicks on interactive controls inside the header
-        if (e.target.closest('.cat-edit-btn') || e.target.closest('.cat-del-btn') ||
+        const interactive = e.target.closest('.cat-edit-btn') || e.target.closest('.cat-del-btn') ||
             e.target.closest('.cat-drag') || e.target.closest('.cat-move-btns') ||
-            e.target.closest('.prio-checkboxes') || e.target.closest('.prio-cat-checkbox')) return;
+            e.target.closest('.prio-checkboxes') || e.target.closest('.prio-cat-checkbox');
+        if (interactive) {
+          return;
+        }
         e.stopPropagation();
         const clickedCard = header.closest('.prio-cat') || header.closest('.cat-card');
-        if (!clickedCard) return;
+          if (!clickedCard) {
+            return;
+          }
         clickedCard.classList.toggle('collapsed');
         const collapsed = clickedCard.classList.contains('collapsed');
         header.setAttribute('aria-expanded', (!collapsed).toString());
@@ -399,7 +406,7 @@
       // make categories reorderable and items draggable between categories
       // destroy existing prio Sortables (if any) before re-init
       if (window.prioCatsSortable && typeof window.prioCatsSortable.destroy === 'function') {
-        try { window.prioCatsSortable.destroy(); console.debug && console.debug('Destroyed previous prioCatsSortable'); } catch (e) { console.error(e); }
+        try { window.prioCatsSortable.destroy(); } catch (e) { console.error(e); }
         window.prioCatsSortable = null;
       }
       if (window.prioItemSortables && Array.isArray(window.prioItemSortables)) {
