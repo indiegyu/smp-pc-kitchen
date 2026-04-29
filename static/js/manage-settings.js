@@ -359,37 +359,6 @@
         });
       });
 
-      // delegated toggle handlers for prio categories (click + keyboard)
-      root.addEventListener('click', function(e) {
-        const clickedCard = e.target.closest('.prio-cat');
-        if (clickedCard) {
-          const header = clickedCard.querySelector('.cat-card-header');
-          if (header && header.contains(e.target) &&
-              !e.target.closest('.cat-edit-btn') && !e.target.closest('.cat-del-btn') &&
-              !e.target.closest('.cat-drag') && !e.target.closest('.cat-move-btns')) {
-            e.stopPropagation();
-            clickedCard.classList.toggle('collapsed');
-            const collapsed = clickedCard.classList.contains('collapsed');
-            if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
-            const arrow = clickedCard.querySelector('.toggle-arrow');
-            if (arrow) arrow.setAttribute('aria-hidden','true');
-            localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0');
-            return;
-          }
-        }
-      });
-      root.addEventListener('keydown', function(e) {
-        if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('cat-card-header')) {
-          e.preventDefault();
-          const clickedCard = e.target.closest('.prio-cat');
-          if (!clickedCard) return;
-          clickedCard.classList.toggle('collapsed');
-          const collapsed = clickedCard.classList.contains('collapsed');
-          const header = clickedCard.querySelector('.cat-card-header');
-          if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
-          localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0');
-        }
-      });
       // make categories reorderable and items draggable between categories
       // destroy existing prio Sortables (if any) before re-init
       if (window.prioCatsSortable && typeof window.prioCatsSortable.destroy === 'function') {
@@ -420,6 +389,45 @@
                 showToast && showToast('카테고리 순서 저장 실패','error');
               }
               await renderPrioCategories();
+
+      // install delegated handlers once on the prioCategoriesContainer to avoid duplicate listeners on rerender
+      const prioRoot = byId('prioCategoriesContainer');
+      if (prioRoot && !prioRoot._prioHandlerInstalled) {
+        prioRoot.addEventListener('click', function(e) {
+          const clickedCard = e.target.closest('.prio-cat');
+          if (clickedCard) {
+            const header = clickedCard.querySelector('.cat-card-header');
+            if (header && header.contains(e.target) &&
+                !e.target.closest('.cat-edit-btn') && !e.target.closest('.cat-del-btn') &&
+                !e.target.closest('.cat-drag') && !e.target.closest('.cat-move-btns') &&
+                !e.target.closest('.prio-checkboxes') && !e.target.closest('.prio-cat-checkbox')) {
+              e.stopPropagation();
+              clickedCard.classList.toggle('collapsed');
+              const collapsed = clickedCard.classList.contains('collapsed');
+              if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
+              const arrow = clickedCard.querySelector('.toggle-arrow');
+              if (arrow) arrow.classList.toggle('collapsed', collapsed);
+              localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0');
+              return;
+            }
+          }
+        });
+        prioRoot.addEventListener('keydown', function(e) {
+          if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('cat-card-header')) {
+            e.preventDefault();
+            const clickedCard = e.target.closest('.prio-cat');
+            if (!clickedCard) return;
+            clickedCard.classList.toggle('collapsed');
+            const collapsed = clickedCard.classList.contains('collapsed');
+            const header = clickedCard.querySelector('.cat-card-header');
+            if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
+            const arrow = clickedCard.querySelector('.toggle-arrow');
+            if (arrow) arrow.classList.toggle('collapsed', collapsed);
+            localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0');
+          }
+        });
+        prioRoot._prioHandlerInstalled = true;
+      }
             }
           });
           console.debug && console.debug('init prioCatsSortable', cardsContainer, cardsContainer.querySelectorAll('.cat-drag'));
