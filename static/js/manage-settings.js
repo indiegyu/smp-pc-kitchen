@@ -302,37 +302,35 @@
     const prioRoot = byId('prioCategoriesContainer');
     if (prioRoot && !prioRoot._prioHandlerInstalled) {
       prioRoot.addEventListener('click', function(e) {
-        const clickedCard = e.target.closest('.prio-cat');
-        if (clickedCard) {
-          const header = clickedCard.querySelector('.cat-card-header');
-          if (header && header.contains(e.target) &&
-              !e.target.closest('.cat-edit-btn') && !e.target.closest('.cat-del-btn') &&
-              !e.target.closest('.cat-drag') && !e.target.closest('.cat-move-btns') &&
-              !e.target.closest('.prio-checkboxes') && !e.target.closest('.prio-cat-checkbox')) {
-            e.stopPropagation();
-            clickedCard.classList.toggle('collapsed');
-            const collapsed = clickedCard.classList.contains('collapsed');
-            if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
-            const arrow = clickedCard.querySelector('.toggle-arrow');
-            if (arrow) arrow.classList.toggle('collapsed', collapsed);
-            localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0');
-            return;
-          }
-        }
+        const header = e.target.closest('.cat-card-header');
+        if (!header) return;
+        // ignore clicks on interactive controls inside the header
+        if (e.target.closest('.cat-edit-btn') || e.target.closest('.cat-del-btn') ||
+            e.target.closest('.cat-drag') || e.target.closest('.cat-move-btns') ||
+            e.target.closest('.prio-checkboxes') || e.target.closest('.prio-cat-checkbox')) return;
+        e.stopPropagation();
+        const clickedCard = header.closest('.prio-cat') || header.closest('.cat-card');
+        if (!clickedCard) return;
+        clickedCard.classList.toggle('collapsed');
+        const collapsed = clickedCard.classList.contains('collapsed');
+        header.setAttribute('aria-expanded', (!collapsed).toString());
+        const arrow = clickedCard.querySelector('.toggle-arrow');
+        if (arrow) arrow.classList.toggle('collapsed', collapsed);
+        try { localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0'); } catch (e) {}
       });
       prioRoot.addEventListener('keydown', function(e) {
-        if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('cat-card-header')) {
-          e.preventDefault();
-          const clickedCard = e.target.closest('.prio-cat');
-          if (!clickedCard) return;
-          clickedCard.classList.toggle('collapsed');
-          const collapsed = clickedCard.classList.contains('collapsed');
-          const header = clickedCard.querySelector('.cat-card-header');
-          if (header) header.setAttribute('aria-expanded', (!collapsed).toString());
-          const arrow = clickedCard.querySelector('.toggle-arrow');
-          if (arrow) arrow.classList.toggle('collapsed', collapsed);
-          localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0');
-        }
+        if (!(e.key === 'Enter' || e.key === ' ')) return;
+        const header = e.target.closest('.cat-card-header');
+        if (!header) return;
+        e.preventDefault();
+        const clickedCard = header.closest('.prio-cat') || header.closest('.cat-card');
+        if (!clickedCard) return;
+        clickedCard.classList.toggle('collapsed');
+        const collapsed = clickedCard.classList.contains('collapsed');
+        header.setAttribute('aria-expanded', (!collapsed).toString());
+        const arrow = clickedCard.querySelector('.toggle-arrow');
+        if (arrow) arrow.classList.toggle('collapsed', collapsed);
+        try { localStorage.setItem('cat_collapsed_' + clickedCard.dataset.id, collapsed ? '1' : '0'); } catch (e) {}
       });
       prioRoot._prioHandlerInstalled = true;
     }
