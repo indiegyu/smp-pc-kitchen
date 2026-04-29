@@ -554,7 +554,7 @@ function render() {
           const key = c.id;
           const title = c.name || `Category ${c.id}`;
           const cls = 'priority-' + key;
-          const list = items.filter(i => String(i.priority) === String(key));
+          const list = items.filter(i => String(i.priority) === String(key) || (String(i.priority) === 'handoff' && (/handoff|인수인계|인수/i.test(String(c.name)))));
           const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
           html += `<div class="priority-box ${cls}" data-key="${key}">`;
           html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${escapeHtml(title)}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
@@ -572,28 +572,6 @@ function render() {
           }
           html += `</div></div>`;
         });
-        // handoff group (special)
-        const handoffList = items.filter(i => String(i.priority) === 'handoff');
-        const handoffExistsInCategories = Array.isArray(prioCategories) && prioCategories.some(c => c && c.name && (/handoff|인수인계|인수/i.test(c.name)));
-        const shouldRenderHandoff = handoffList.length > 0 || handoffExistsInCategories;
-        if (shouldRenderHandoff) {
-            const handoffCollapsed = localStorage.getItem('prio_collapsed_handoff') === '1';
-            html += `<div class="priority-box priority-handoff" data-key="handoff">`;
-            html += `<div class="priority-header" onclick="togglePriorityBox('handoff', this)" aria-expanded="${!handoffCollapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">🔁</span> 오전 인수인계전 체크사항</div><span class="collapse-arrow ${handoffCollapsed ? 'collapsed' : ''}">▾</span></div></div>`;
-            html += `<div class="priority-body ${handoffCollapsed ? 'collapsed' : ''}">`;
-            if (!handoffList.length) {
-                html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
-            } else {
-                html += handoffList.map(it => `
-                    <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
-                        <div class="cl-check"></div>
-                        <div class="cl-name">${escapeHtml(it.name)}</div>
-                        ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')}</div>` : ''}
-                    </div>
-                `).join('');
-            }
-            html += `</div></div>`;
-        }
         container.innerHTML = html;
         return;
       } else {
@@ -646,7 +624,7 @@ function render() {
       const key = c.id;
       const title = c.name || `Category ${c.id}`;
       const cls = 'priority-' + key;
-      const list = items.filter(i => String(i.priority) === String(key));
+      const list = items.filter(i => String(i.priority) === String(key) || (String(i.priority) === 'handoff' && (/handoff|인수인계|인수/i.test(String(c.name)))));
       const collapsed = localStorage.getItem('prio_collapsed_' + key) === '1';
       html += `<div class="priority-box ${cls}" data-key="${key}">`;
       html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${escapeHtml(title)}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
@@ -664,29 +642,6 @@ function render() {
       }
       html += `</div></div>`;
     });
- 
-    // handoff group (special)
-    const handoffList = items.filter(i => String(i.priority) === 'handoff');
-    const handoffExistsInCategories = Array.isArray(prioCategories) && prioCategories.some(c => c && c.name && (/handoff|인수인계|인수/i.test(c.name)));
-    const shouldRenderHandoff = handoffList.length > 0 || handoffExistsInCategories;
-    if (shouldRenderHandoff) {
-        const handoffCollapsed = localStorage.getItem('prio_collapsed_handoff') === '1';
-        html += `<div class="priority-box priority-handoff" data-key="handoff">`;
-        html += `<div class="priority-header" onclick="togglePriorityBox('handoff', this)" aria-expanded="${!handoffCollapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons['handoff']}</span> 오전 인수인계전 체크사항</div><span class="collapse-arrow ${handoffCollapsed ? 'collapsed' : ''}">▾</span></div></div>`;
-        html += `<div class="priority-body ${handoffCollapsed ? 'collapsed' : ''}">`;
-        if (!handoffList.length) {
-            html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
-        } else {
-            html += handoffList.map(it => `
-            <div class="cl-item ${it.completed ? 'checked' : ''}" onclick="toggleItemById(${it.id})">
-                <div class="cl-check"></div>
-                <div class="cl-name">${escapeHtml(it.name)}</div>
-                ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')}</div>` : ''}
-            </div>
-        `).join('');
-        }
-        html += `</div></div>`;
-    }
  
     container.innerHTML = html;
   }

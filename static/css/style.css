@@ -1136,6 +1136,16 @@ input[type="date"]:focus { border-color: var(--primary); }
 .priority-4 .priority-header { background: #bbf7d0; color: #14532d; } /* light green */
 .priority-5 .priority-header { background: #e9d5ff; color: #4c0177; } /* light purple */
 
+/* Additional categories / night categories */
+.priority-6 .priority-header { background: #fed7aa; color: #431407; } /* orange */
+.priority-7 .priority-header { background: #fef3c7; color: #5c3b00; } /* pale yellow (night) */
+.priority-8 .priority-header { background: #e0f2fe; color: #06283d; } /* light sky (night) */
+.priority-9 .priority-header { background: #fff7ed; color: #7a2e00; } /* peach (night) */
+.priority-10 .priority-header { background: #f0fdf4; color: #064e3b; } /* mint (night) */
+
+/* Special handoff group header (fallback) */
+.priority-handoff .priority-header { background: #f8fafc; color: #0f172a; }
+
 /* ensure checklist items stay visually distinct inside priority boxes */
 .priority-box .cl-item {
     margin-bottom: 6px;
