@@ -22,7 +22,14 @@ def fmt_kst(dt, fmt='%m/%d %H:%M'):
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
-db_path = os.path.join(basedir, 'instance', 'smp.db')
+
+# Allow overriding the SQLite DB path via SMP_DB_PATH environment variable.
+# If SMP_DB_PATH is a relative path it will be interpreted relative to the project base dir.
+smp_db_env = os.environ.get('SMP_DB_PATH')
+if smp_db_env:
+    db_path = smp_db_env if os.path.isabs(smp_db_env) else os.path.join(basedir, smp_db_env)
+else:
+    db_path = os.path.join(basedir, 'instance', 'smp.db')
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
