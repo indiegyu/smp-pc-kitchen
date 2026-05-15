@@ -158,7 +158,17 @@ function renderCategory(catKey, items) {
         meta.className = 'item-meta';
         meta.textContent = it.updated_by ? `수정: ${it.updated_by}` : '';
 
+        // add compact controls
         controls.appendChild(compact);
+
+        // add send button
+        const sendBtn = document.createElement('button');
+        sendBtn.className = 'btn btn-primary btn-sm send-request';
+        sendBtn.type = 'button';
+        sendBtn.textContent = '전송';
+        sendBtn.addEventListener('click', () => { sendShortageRequest(row, it); });
+        controls.appendChild(sendBtn);
+
         row.appendChild(left);
         row.appendChild(controls);
         row.appendChild(meta);
@@ -192,6 +202,31 @@ async function updateCount(itemId, units, boxes) {
     } catch (err) {
         // show error only on failure
         showToast('저장 실패', 'error');
+    }
+}
+
+async function sendShortageRequest(row, it) {
+    const date = q('#shortageDate').value || todayISO();
+    const updated_by = (typeof getSelectedStaff === 'function') ? getSelectedStaff() : '';
+    const inputs = row.querySelectorAll('.count-input');
+    const units = inputs[0] ? (inputs[0].value || '0') : '0';
+    const boxes = inputs[1] ? (inputs[1].value || '') : '';
+    const noteParts = [];
+    if (units !== '') noteParts.push(`units:${units}`);
+    if (boxes !== '') noteParts.push(`boxes:${boxes}`);
+    const note = noteParts.join(', ');
+    const payload = { shortage_item_id: it.id || row.dataset.itemId, date: date, created_by: updated_by, note: note };
+    try {
+        const res = await api('/api/order-request', { method: 'POST', body: payload });
+        if (res && res.ok) {
+            row.classList.add('sent');
+            setTimeout(() => row.classList.remove('sent'), 800);
+            showToast('전송 완료', 'success');
+        } else {
+            showToast((res && res.error) ? res.error : '전송 실패', 'error');
+        }
+    } catch (e) {
+        showToast('전송 실패', 'error');
     }
 }
 
