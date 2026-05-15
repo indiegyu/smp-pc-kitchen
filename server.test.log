@@ -1,0 +1,40 @@
+Traceback (most recent call last):
+  File "/Users/smp/Desktop/smp-pc-kitchen/app.py", line 40, in <module>
+    socketio = SocketIO(app, message_queue=REDIS_URL, cors_allowed_origins="*", async_mode='eventlet')
+  File "/Users/smp/Desktop/smp-pc-kitchen/.venv/lib/python3.14/site-packages/flask_socketio/__init__.py", line 201, in __init__
+    self.init_app(app, **kwargs)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/Users/smp/Desktop/smp-pc-kitchen/.venv/lib/python3.14/site-packages/flask_socketio/__init__.py", line 257, in init_app
+    self.server = socketio.Server(**self.server_options)
+                  ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smp/Desktop/smp-pc-kitchen/.venv/lib/python3.14/site-packages/socketio/base_server.py", line 34, in __init__
+    self.eio = self._engineio_server_class()(**engineio_options)
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smp/Desktop/smp-pc-kitchen/.venv/lib/python3.14/site-packages/engineio/base_server.py", line 83, in __init__
+    self._async = importlib.import_module(
+                  ~~~~~~~~~~~~~~~~~~~~~~~^
+        'engineio.async_drivers.' + mode)._async
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1398, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1371, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1342, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 938, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 759, in exec_module
+  File "<frozen importlib._bootstrap>", line 491, in _call_with_frames_removed
+  File "/Users/smp/Desktop/smp-pc-kitchen/.venv/lib/python3.14/site-packages/engineio/async_drivers/eventlet.py", line 1, in <module>
+    from eventlet.green.threading import Event
+  File "/Users/smp/Desktop/smp-pc-kitchen/.venv/lib/python3.14/site-packages/eventlet/__init__.py", line 17, in <module>
+    from eventlet import convenience
+  File "/Users/smp/Desktop/smp-pc-kitchen/.venv/lib/python3.14/site-packages/eventlet/convenience.py", line 7, in <module>
+    from eventlet.green import socket
+  File "/Users/smp/Desktop/smp-pc-kitchen/.venv/lib/python3.14/site-packages/eventlet/green/socket.py", line 21, in <module>
+    from eventlet.support import greendns
+  File "/Users/smp/Desktop/smp-pc-kitchen/.venv/lib/python3.14/site-packages/eventlet/support/greendns.py", line 45, in <module>
+    from eventlet.green import ssl
+  File "/Users/smp/Desktop/smp-pc-kitchen/.venv/lib/python3.14/site-packages/eventlet/green/ssl.py", line 25, in <module>
+    _original_wrap_socket = __ssl.wrap_socket
+                            ^^^^^^^^^^^^^^^^^
+AttributeError: module 'ssl' has no attribute 'wrap_socket'

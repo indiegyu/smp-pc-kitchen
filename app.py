@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from models import db, Staff, ChecklistItem, ChecklistLog, DailyNote, Message, \
-    InventoryCategory, InventoryItem, InventoryTransaction, ShortageItem, ShortageCount
+    InventoryCategory, InventoryItem, InventoryTransaction, ShortageItem, ShortageCount, OrderRequest
 from datetime import datetime, date, timedelta
 import os
 import json
@@ -37,7 +37,7 @@ db.init_app(app)
 
 # Initialize SocketIO for real-time messaging. If REDIS_URL is provided it will be used as the message queue.
 REDIS_URL = os.environ.get('REDIS_URL')
-socketio = SocketIO(app, message_queue=REDIS_URL, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, message_queue=REDIS_URL, cors_allowed_origins="*", async_mode='threading')
 
 # Inject server_today (KST, reset hour 4) into templates and make available to client
 def get_server_today_iso():
@@ -947,6 +947,68 @@ def admin_login():
 @app.route('/manage/shortages')
 def manage_shortages():
     return render_template('shortages.html')
+
+# ─── Order requests (admin -> owner) API ─────────────────────────────────
+@app.route('/api/order-request', methods=['POST'])
+def create_order_request():
+    data = request.json or {}
+    item_id = data.get('item_id')
+    shortage_item_id = data.get('shortage_item_id')
+    if not item_id and not shortage_item_id:
+        return jsonify({'error': 'item_id or shortage_item_id required'}), 400
+    try:
+        date_str = data.get('date') or datetime.now(KST).date().isoformat()
+        target_date = date.fromisoformat(date_str)
+    except Exception:
+        return jsonify({'error': 'invalid date'}), 400
+    shift = data.get('shift') or None
+    note = data.get('note') or ''
+    created_by = data.get('created_by') or None
+
+    req = OrderRequest(item_id=item_id, shortage_item_id=shortage_item_id, created_by=created_by, date=target_date, shift=shift, note=note, status='pending')
+    db.session.add(req)
+    db.session.commit()
+
+    # KakaoWork sending deferred to scheduler; mark sent_kakaowork False for now.
+    try:
+        kakao_bot_token = os.environ.get('KAKAO_WORK_BOT_TOKEN')
+        kakao_conv = os.environ.get('KAKAO_WORK_CONV_ID')
+        if kakao_bot_token and kakao_conv:
+            pass
+    except Exception:
+        pass
+
+    return jsonify({'ok': True, 'id': req.id})
+
+@app.route('/api/owner/requests')
+def get_owner_requests():
+    status = request.args.get('status', 'pending')
+    q = OrderRequest.query.filter_by(status=status).order_by(OrderRequest.created_at.asc())
+    results = []
+    for r in q.limit(100).all():
+        results.append({
+            'id': r.id,
+            'item_id': r.item_id,
+            'item_name': r.item.name if getattr(r, 'item', None) else None,
+            'shortage_item_id': r.shortage_item_id,
+            'shortage_item_name': r.shortage_item.name if getattr(r, 'shortage_item', None) else None,
+            'created_by': r.created_by,
+            'date': r.date.isoformat(),
+            'shift': r.shift,
+            'status': r.status,
+            'note': r.note,
+            'created_at': fmt_kst(r.created_at)
+        })
+    return jsonify(results)
+
+@app.route('/api/owner/requests/<int:req_id>', methods=['PATCH'])
+def update_owner_request(req_id):
+    data = request.json or {}
+    r = OrderRequest.query.get_or_404(req_id)
+    if 'status' in data:
+        r.status = data.get('status')
+    db.session.commit()
+    return jsonify({'ok': True})
 
 @app.route('/api/shortages')
 def get_shortages():

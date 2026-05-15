@@ -7,6 +7,13 @@
     <h1>관리자 대시보드</h1>
 </div>
 
+<div id="ownerPanel" class="card owner-panel" style="position:sticky;top:8px;z-index:20;margin-bottom:12px;">
+    <div class="card-header"><span>사장님 요청</span><div style="margin-left:auto"><button id="refreshOwnerPanel" class="btn btn-outline btn-sm">새로고침</button></div></div>
+    <div class="card-body" style="padding:10px" id="ownerPanelBody">
+        <div id="ownerRequestsList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+</div>
+
 {# --- 체크리스트 관련 (운영) --- #}
 {% if active == 'checklist' or not active %}
 <div class="card">
@@ -416,12 +423,12 @@ async function loadDetail(shift) {
             const stored = prMap[pid];
             // treat explicit 'auto' as fallback to heuristic
             if (stored === 'auto' || stored === null || typeof stored === 'undefined') {
-                priority = assignPriority(it.name, shift);
+                priority = String(assignPriority(it.name, shift));
             } else {
-                priority = stored;
+                priority = String(stored);
             }
         } else {
-            priority = assignPriority(it.name, shift);
+            priority = String(assignPriority(it.name, shift));
         }
         return { ...it, priority, night_group: (shift === 'night' ? mapNightGroup(it.name) : null) };
     });
@@ -430,24 +437,100 @@ async function loadDetail(shift) {
     if (!container) return;
 
     if (shift === 'night') {
+        // prefer server-defined priority categories for night view; fallback to legacy grouping
+        try {
+            const catsAll = await api('/api/checklist/priority-categories') || [];
+            const prioCats = Array.isArray(catsAll) ? catsAll.slice().sort((a,b) => (a.sort_order||0)-(b.sort_order||0)) : [];
+            const prioCatsFiltered = prioCats.filter(c => (c.default_shift === null || c.default_shift === undefined) || String(c.default_shift) === String(shift));
+            if (prioCatsFiltered && prioCatsFiltered.length) {
+                let html = '';
+                prioCatsFiltered.forEach((c, idx) => {
+                    const key = c.id;
+                    const title = c.name || `Category ${c.id}`;
+                    const cls = 'priority-' + key;
+                    const list = enriched.filter(i => String(i.priority) === String(key));
+                    const stored = localStorage.getItem('prio_collapsed_' + key);
+                    const collapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
+                    html += `<div class="priority-box ${cls}" data-key="${key}">`;
+                    html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" role="button" tabindex="0" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true"></span> ${escapeHtml(title)}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+                    html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
+                    if (!list.length) {
+                        html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+                    } else {
+                        html += list.map(it => `
+                            <div class="cl-item ${it.completed ? 'checked' : ''}" style="cursor:default">
+                                <div class="cl-check"></div>
+                                <div class="cl-name">${escapeHtml(it.name)}</div>
+                                ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')} ${escapeHtml(it.completed_at || '')}</div>` : ''}
+                            </div>
+                        `).join('');
+                    }
+                    html += `</div></div>`;
+                });
+                // handoff group (special)
+                const handoffList = enriched.filter(i => String(i.priority) === 'handoff');
+                const handoffCollapsed = localStorage.getItem('prio_collapsed_handoff') === '1';
+                html += `<div class="priority-box priority-handoff" data-key="handoff">`;
+                html += `<div class="priority-header" onclick="togglePriorityBox('handoff', this)" role="button" tabindex="0" aria-expanded="${!handoffCollapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">🔁</span> 오전 인수인계전 체크사항</div><span class="collapse-arrow ${handoffCollapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+                html += `<div class="priority-body ${handoffCollapsed ? 'collapsed' : ''}">`;
+                if (!handoffList.length) {
+                    html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+                } else {
+                    html += handoffList.map(it => `
+                        <div class="cl-item ${it.completed ? 'checked' : ''}" style="cursor:default">
+                            <div class="cl-check"></div>
+                            <div class="cl-name">${escapeHtml(it.name)}</div>
+                            ${it.completed ? `<div class="cl-meta">${escapeHtml(it.completed_by || '')} ${escapeHtml(it.completed_at || '')}</div>` : ''}
+                        </div>
+                    `).join('');
+                }
+                html += `</div></div>`;
+                container.innerHTML = html;
+                (async function(){
+                  try {
+                    const d = viewDate ? viewDate.value : getResetIsoDate();
+                    const [purchase, handoff] = await Promise.all([
+                      api(`/api/notes/${shift}/purchase?date=${d}`),
+                      api(`/api/notes/${shift}/handoff?date=${d}`)
+                    ]);
+                    const purEl = document.getElementById('adminPurchaseNote');
+                    const hanEl = document.getElementById('adminHandoffNote');
+                    if (purEl) purEl.textContent = (purchase && purchase.content) ? purchase.content : '-';
+                    if (hanEl) hanEl.textContent = (handoff && handoff.content) ? handoff.content : '-';
+                  } catch (e) {
+                    console.error('load admin notes failed', e);
+                    const purEl = document.getElementById('adminPurchaseNote');
+                    const hanEl = document.getElementById('adminHandoffNote');
+                    if (purEl) purEl.textContent = '-';
+                    if (hanEl) hanEl.textContent = '-';
+                  }
+                })();
+                return;
+            }
+        } catch (e) {
+            // fall back to legacy grouping below
+            console.error('failed to load server categories for night view', e);
+        }
+
+        // fallback to legacy grouping when server categories are not available
         const groups = {
             mc1: {title: '마감 청소 1', cls: 'priority-1'},
             mc2: {title: '마감 청소 2', cls: 'priority-2'},
             closing: {title: '마감', cls: 'priority-3'}
         };
         const icons = {mc1: '🧹', mc2: '🧽', closing: '🏁'};
-        let html = '';
+        let html2 = '';
         ['mc1','mc2','closing'].forEach((key, idx) => {
             const list = enriched.filter(i => (i.night_group || mapNightGroup(i.name)) === key);
             const stored = localStorage.getItem('prio_collapsed_' + key);
             const collapsed = (stored === '1') ? true : (stored === '0') ? false : (idx !== 0);
-            html += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
-            html += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" role="button" tabindex="0" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
-            html += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
+            html2 += `<div class="priority-box ${groups[key].cls || ''}" data-key="${key}">`;
+            html2 += `<div class="priority-header" onclick="togglePriorityBox('${key}', this)" role="button" tabindex="0" aria-expanded="${!collapsed}"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span class="prio-icon" aria-hidden="true">${icons[key] || ''}</span> ${groups[key].title}</div><span class="collapse-arrow ${collapsed ? 'collapsed' : ''}">▾</span></div></div>`;
+            html2 += `<div class="priority-body ${collapsed ? 'collapsed' : ''}">`;
             if (!list.length) {
-                html += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
+                html2 += `<div class="cl-item empty" style="padding:8px 12px;color:var(--text-secondary);background:transparent;border:none;">항목 없음</div>`;
             } else {
-                html += list.map(it => `
+                html2 += list.map(it => `
                     <div class="cl-item ${it.completed ? 'checked' : ''}" style="cursor:default">
                         <div class="cl-check"></div>
                         <div class="cl-name">${it.name}</div>
@@ -455,9 +538,9 @@ async function loadDetail(shift) {
                     </div>
                 `).join('');
             }
-            html += `</div></div>`;
+            html2 += `</div></div>`;
         });
-        container.innerHTML = html;
+        container.innerHTML = html2;
         (async function(){
           try {
             const d = viewDate ? viewDate.value : getResetIsoDate();
@@ -734,6 +817,7 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
     if (adminActive === 'checklist') {
         loadSummary();
         loadDetail('day');
+        if (typeof loadOwnerPanel === 'function') loadOwnerPanel();
     } else if (adminActive === 'inventory') {
         loadLowStock();
         loadCategories();
@@ -855,6 +939,70 @@ function escapeHtml(s) {
     return {'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c];
   });
 }
+
+/* Owner panel: fetch pending owner requests and render top sticky panel */
+let ownerPanelInterval = null;
+async function loadOwnerPanel() {
+  const listEl = document.getElementById('ownerRequestsList');
+  if (!listEl) return;
+  listEl.innerHTML = '<div style="color:var(--text-secondary)">로딩 중...</div>';
+  try {
+    const res = await api('/api/owner/requests?status=pending') || [];
+    renderOwnerRequests(res);
+    if (!ownerPanelInterval) {
+      ownerPanelInterval = setInterval(() => loadOwnerPanel(), 15000);
+    }
+  } catch (e) {
+    listEl.innerHTML = '<div style="color:var(--danger)">불러오기 실패</div>';
+  }
+}
+
+function renderOwnerRequests(items) {
+  const container = document.getElementById('ownerRequestsList');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!Array.isArray(items) || items.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-secondary)">대기 중인 요청이 없습니다.</div>';
+    return;
+  }
+  items.forEach(r => {
+    const el = document.createElement('div');
+    el.className = 'owner-req';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'space-between';
+    el.style.padding = '6px';
+    el.style.borderBottom = '1px solid var(--border)';
+    const left = document.createElement('div');
+    left.style.flex = '1';
+    left.innerHTML = '<div style="font-weight:700">' + escapeHtml(r.shortage_item_name || r.item_name || '') + '</div><div style="font-size:0.85rem;color:var(--text-secondary)">' + escapeHtml(r.note || '') + ' · ' + escapeHtml(r.created_by || '') + ' · ' + escapeHtml(r.created_at || '') + '</div>';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.dataset.id = r.id;
+    cb.title = '완료 처리';
+    cb.addEventListener('change', async (e) => {
+      if (!e.target.checked) return;
+      try {
+        const upd = await api('/api/owner/requests/' + r.id, { method: 'PATCH', body: { status: 'done' } });
+        if (upd && upd.ok) {
+          el.remove();
+          showToast('요청 처리됨','success');
+        } else {
+          showToast('요청 처리 실패','error');
+          cb.checked = false;
+        }
+      } catch (err) {
+        showToast('서버 오류','error');
+        cb.checked = false;
+      }
+    });
+    el.appendChild(left);
+    el.appendChild(cb);
+    container.appendChild(el);
+  });
+}
+
+document.getElementById('refreshOwnerPanel') && document.getElementById('refreshOwnerPanel').addEventListener('click', () => loadOwnerPanel());
 
 </script>
 <script src="/static/js/manage-settings.js"></script>

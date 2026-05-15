@@ -132,7 +132,8 @@ class ShortageCount(db.Model):
 class OrderRequest(db.Model):
     __tablename__ = 'order_requests'
     id = db.Column(db.Integer, primary_key=True)
-    item_id = db.Column(db.Integer, db.ForeignKey('inventory_items.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('inventory_items.id'), nullable=True)
+    shortage_item_id = db.Column(db.Integer, db.ForeignKey('shortage_items.id'), nullable=True)
     created_by = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.now)
     date = db.Column(db.Date, nullable=False)
@@ -141,4 +142,5 @@ class OrderRequest(db.Model):
     note = db.Column(db.Text)
     sent_kakaowork = db.Column(db.Boolean, default=False)
 
-    item = db.relationship('InventoryItem', backref='order_requests')
+    item = db.relationship('InventoryItem', backref='order_requests', foreign_keys=[item_id])
+    shortage_item = db.relationship('ShortageItem', backref='order_requests', foreign_keys=[shortage_item_id])
